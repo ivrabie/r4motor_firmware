@@ -1,0 +1,11 @@
+/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/deps/sdio_host-1b7f65e3ea2e7dec.d: /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/lib.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc.rs
+
+/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/deps/libsdio_host-1b7f65e3ea2e7dec.rmeta: /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/lib.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc_cmd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc.rs
+
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/lib.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common_cmd.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd_cmd.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc_cmd.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/common.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/sd.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sdio-host-0.9.0/src/emmc.rs:

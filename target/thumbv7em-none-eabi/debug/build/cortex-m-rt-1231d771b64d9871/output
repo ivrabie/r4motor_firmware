@@ -1,0 +1,10 @@
+cargo:rustc-check-cfg=cfg(armv6m)
+cargo:rustc-check-cfg=cfg(armv7m)
+cargo:rustc-check-cfg=cfg(armv8m)
+cargo:rustc-check-cfg=cfg(cortex_m)
+cargo:rustc-check-cfg=cfg(has_fpu)
+cargo:rustc-cfg=cortex_m
+cargo:rustc-cfg=armv7m
+cargo:rustc-link-search=/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/build/cortex-m-rt-1231d771b64d9871/out
+cargo:rerun-if-changed=build.rs
+cargo:rerun-if-changed=link.x.in

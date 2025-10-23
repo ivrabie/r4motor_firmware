@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.files.excludeDirs": [
+    "../embassy/**",
+    "target/debug"
+  ],
+}
