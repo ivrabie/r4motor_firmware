@@ -1,3 +1,0 @@
-cargo:rustc-link-search=/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/build/defmt-de4bb09319b20d81/out
-cargo:rustc-check-cfg=cfg(c_variadic)
-cargo:rustc-check-cfg=cfg(no_cas)
