@@ -1,0 +1,10 @@
+/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/deps/embedded_hal_async-e32c405271797ddc.d: /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/lib.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/delay.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/digital.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/i2c.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/spi.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/../README.md
+
+/home/vrion/rust_4motor_firmware/target/thumbv7em-none-eabi/debug/deps/libembedded_hal_async-e32c405271797ddc.rmeta: /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/lib.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/delay.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/digital.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/i2c.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/spi.rs /home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/../README.md
+
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/lib.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/delay.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/digital.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/i2c.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/spi.rs:
+/home/vrion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embedded-hal-async-1.0.0/src/../README.md:

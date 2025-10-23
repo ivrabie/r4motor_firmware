@@ -1,0 +1,3 @@
+cargo:rustc-link-search=/home/vrion/rust_4motor_firmware/target/debug/build/defmt-0c0fb687e5c72d1c/out
+cargo:rustc-check-cfg=cfg(c_variadic)
+cargo:rustc-check-cfg=cfg(no_cas)

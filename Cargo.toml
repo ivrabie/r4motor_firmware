@@ -1,0 +1,28 @@
+[package]
+edition = "2024"
+name = "dc_motor_firmware"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# Change stm32f429zi to your chip name, if necessary.
+embassy-stm32 = { version = "0.4.0", path = "../embassy/embassy-stm32",  features = ["defmt", "stm32f411ce", "unstable-pac", "memory-x", "time-driver-tim9", "exti", "chrono"] }
+embassy-sync = { version = "0.7.2", path = "../embassy/embassy-sync", features = ["defmt"] }
+embassy-executor = { version = "0.9.1", path = "../embassy/embassy-executor", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embassy-time = { version = "0.5.0", path = "../embassy/embassy-time", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
+
+defmt = "1.0.1"
+defmt-rtt = "1.0.0"
+
+cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
+cortex-m-rt = "0.7.5"
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+[profile.release]
+debug = 2
+
+[package.metadata.embassy]
+build = [
+  { target = "thumbv7em-none-eabi", artifact-dir = "out" }
+]
