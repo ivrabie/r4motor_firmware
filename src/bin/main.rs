@@ -5,13 +5,33 @@ use defmt::*;
 use embassy_executor::Spawner;
 
 use embassy_stm32::{
-    gpio::{Level, Output, OutputType, Speed}, spi::{Config as SpiConfig ,Spi}, time::khz, timer::{
-        qei::{Qei, Config as QeiConfig},
+    gpio::{Level, Output, OutputType, Speed},
+    spi::{Config as SpiConfig, Spi},
+    time::khz,
+    timer::{
+        qei::{Config as QeiConfig, Qei},
         simple_pwm::{PwmPin, SimplePwm},
-    }
+    },
 };
-use embassy_time::{Ticker, Duration};
+use embassy_time::{Duration, Ticker};
 use {defmt_rtt as _, panic_probe as _};
+
+// PWM duty cycle constants
+const MOTOR_PWM_FREQUENCY_KHZ: u32 = 50;
+const TICKER_INTERVAL_MS: u64 = 10;
+const SPI_FREQUENCY_KHZ: u32 = 5000;
+
+// High state duty cycles (percentage)
+const MOTOR1_DUTY_HIGH: u8 = 40;
+const MOTOR2_DUTY_HIGH: u8 = 50;
+const MOTOR3_DUTY_HIGH: u8 = 60;
+const MOTOR4_DUTY_HIGH: u8 = 70;
+
+// Low state duty cycles (percentage)
+const MOTOR1_DUTY_LOW: u8 = 5;
+const MOTOR2_DUTY_LOW: u8 = 10;
+const MOTOR3_DUTY_LOW: u8 = 15;
+const MOTOR4_DUTY_LOW: u8 = 20;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -45,7 +65,7 @@ async fn main(_spawner: Spawner) {
         Some(ch2_pin),
         Some(ch3_pin),
         Some(ch4_pin),
-        khz(50),
+        khz(MOTOR_PWM_FREQUENCY_KHZ),
         Default::default(),
     );
 
@@ -60,36 +80,29 @@ async fn main(_spawner: Spawner) {
     mot3_pwm.enable();
     mot4_pwm.enable();
 
-
     // Quadrature configuration
-
     let qei_config = QeiConfig::default();
-    let qei_motor1 = Qei::new(p.TIM2, p.PA15, p.PB3, qei_config);
-    let qei_motor2 = Qei::new(p.TIM3, p.PA6, p.PA7, qei_config);
-    let qei_motor3 = Qei::new(p.TIM4, p.PB6, p.PB7, qei_config);
-    let qei_motor4 = Qei::new(p.TIM5, p.PA0, p.PA1, qei_config);
-
+    let _qei_motor1 = Qei::new(p.TIM2, p.PA15, p.PB3, qei_config);
+    let _qei_motor2 = Qei::new(p.TIM3, p.PA6, p.PA7, qei_config);
+    let _qei_motor3 = Qei::new(p.TIM4, p.PB6, p.PB7, qei_config);
+    let _qei_motor4 = Qei::new(p.TIM5, p.PA0, p.PA1, qei_config);
 
     // SPI configuration (Slave mode)
     let mut spi_config = SpiConfig::default();
-    spi_config.frequency = khz(5000);
-    let mut spi = Spi ::new_slave(
-        p.SPI1,
-        p.PA5,  // SCK
-        p.PB5,  // MOSI
-        p.PB4,  // MISO
-        p.PA4,  // CS
-        p.DMA2_CH3,
-        p.DMA2_CH2,
-        spi_config,
+    spi_config.frequency = khz(SPI_FREQUENCY_KHZ);
+    let mut spi = Spi::new_slave(
+        p.SPI1, p.PA5, // SCK
+        p.PB5, // MOSI
+        p.PB4, // MISO
+        p.PA4, // CS
+        p.DMA2_CH3, p.DMA2_CH2, spi_config,
     );
 
-
-    let mut ticker = Ticker::every(Duration::from_millis(10)); 
+    let mut ticker = Ticker::every(Duration::from_millis(TICKER_INTERVAL_MS));
     loop {
         // info!("high");
-        let mut spi_read_buffer = [0u8; 1];
-        let spi_write_buffer = [1u8, 2u8, 3u8, 4u8, 5u8];
+        let mut spi_read_buffer = [0; 1];
+        let spi_write_buffer = [1, 2, 3, 4, 5];
         m1_ins_a.set_high();
         m1_ins_b.set_high();
         m2_ins_a.set_high();
@@ -105,25 +118,25 @@ async fn main(_spawner: Spawner) {
         vcc_gpio.set_high();
         standby_gpio.set_high();
 
-        // info!("Motor1 count: {}", qei_motor1.count());
-        // info!("Motor2 count: {}", qei_motor2.count());
-        // info!("Motor3 count: {}", qei_motor3.count());
-        // info!("Motor4 count: {}", qei_motor4.count());
+        // info!("Motor1 count: {}", _qei_motor1.count());
+        // info!("Motor2 count: {}", _qei_motor2.count());
+        // info!("Motor3 count: {}", _qei_motor3.count());
+        // info!("Motor4 count: {}", _qei_motor4.count());
 
-        mot1_pwm.set_duty_cycle_percent(40);
-        mot2_pwm.set_duty_cycle_percent(50);
-        mot3_pwm.set_duty_cycle_percent(60);
-        mot4_pwm.set_duty_cycle_percent(70);
+        mot1_pwm.set_duty_cycle_percent(MOTOR1_DUTY_HIGH);
+        mot2_pwm.set_duty_cycle_percent(MOTOR2_DUTY_HIGH);
+        mot3_pwm.set_duty_cycle_percent(MOTOR3_DUTY_HIGH);
+        mot4_pwm.set_duty_cycle_percent(MOTOR4_DUTY_HIGH);
         // Timer::after_millis(5).await;
 
         ticker.next().await;
 
         // info!("low");
 
-        mot1_pwm.set_duty_cycle_percent(5);
-        mot2_pwm.set_duty_cycle_percent(10);
-        mot3_pwm.set_duty_cycle_percent(15);
-        mot4_pwm.set_duty_cycle_percent(20);
+        mot1_pwm.set_duty_cycle_percent(MOTOR1_DUTY_LOW);
+        mot2_pwm.set_duty_cycle_percent(MOTOR2_DUTY_LOW);
+        mot3_pwm.set_duty_cycle_percent(MOTOR3_DUTY_LOW);
+        mot4_pwm.set_duty_cycle_percent(MOTOR4_DUTY_LOW);
 
         m1_ins_a.set_low();
         m1_ins_b.set_low();
