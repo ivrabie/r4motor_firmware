@@ -3,4 +3,15 @@
     "../embassy/**",
     "target/debug"
   ],
+  "github.copilot.advanced": {
+    "excludedFiles": [
+      "**/target/**",
+      "**/.git/**",
+      "**/Cargo.lock"
+    ]
+  },
+  "files.exclude": {
+    "**/target": true,
+    "**/.git": true
+  }
 }
