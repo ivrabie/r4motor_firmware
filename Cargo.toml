@@ -7,18 +7,19 @@ publish = false
 
 [dependencies]
 # Change stm32f429zi to your chip name, if necessary.
-embassy-stm32 = { version = "0.4.0", path = "../embassy/embassy-stm32",  features = ["defmt", "stm32f411ce", "unstable-pac", "memory-x", "time-driver-tim9", "exti", "chrono"] }
-embassy-sync = { version = "0.7.2", path = "../embassy/embassy-sync", features = ["defmt"] }
-embassy-executor = { version = "0.9.1", path = "../embassy/embassy-executor", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
-embassy-time = { version = "0.5.0", path = "../embassy/embassy-time", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
-
+embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["defmt", "stm32f411ce", "unstable-pac", "memory-x", "time-driver-tim9", "exti", "chrono"] }
+embassy-sync = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["defmt"] }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
 
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = "0.7.5"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
-
+num_enum = { version = "0.7.5" , default-features = false, features = ["complex-expressions"] }
+embedded-hal = { version = "1.0.0" }
+crc = { version = "3", default-features = false }
 [profile.release]
 debug = 2
 

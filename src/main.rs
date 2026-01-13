@@ -4,7 +4,6 @@
 #![warn(unused_imports)]
 #![warn(dead_code)]
 
-
 use defmt::*;
 use embassy_executor::Spawner;
 
@@ -22,6 +21,10 @@ use {defmt_rtt as _, panic_probe as _};
 
 mod motor;
 use motor::*;
+mod spi_proto;
+use spi_proto::*;
+mod registry;
+use registry::*;
 
 const MOTOR_COUNT_PER_REV: u16 = 330; 
 
@@ -48,21 +51,68 @@ async fn motor_control_task(
 
 #[embassy_executor::task]
 async fn spi_task(mut spi: Spi<'static, embassy_stm32::mode::Async, embassy_stm32::spi::mode::Slave>) {
-    // SPI task implementation
-    let mut count: u8 = 0;
-    let mut spi_write_buffer = [0u8; 5];
+    let mut registry = Registry::new();
+    let mut protocol_buffer = [0u8; spi_proto::PROTOCOL_MAX_BUFFER_SIZE];
+    
     loop {
-        let mut spi_read_buffer = [0u8; 1];
-        
-        for i in spi_write_buffer.iter_mut() {
-            *i = count;
+        if let Err(e) = handle_spi_transaction(&mut spi, &mut registry, &mut protocol_buffer).await {
+            error!("SPI transaction failed: {:?}", e);
+            // Continue processing despite errors
         }
-        count = count.wrapping_add(1);
+    }
+}
 
-        spi.read(&mut spi_read_buffer).await.unwrap();
-        info!("SPI Received: {:x}", spi_read_buffer[0]);
-        spi.write(&spi_write_buffer).await.unwrap();
-        info!("Data sent {:?}", spi_write_buffer);
+async fn handle_spi_transaction(
+    spi: &mut Spi<'static, embassy_stm32::mode::Async, embassy_stm32::spi::mode::Slave>,
+    registry: &mut Registry,
+    buffer: &mut [u8]
+) -> Result<(), embassy_stm32::spi::Error> {
+    // Read SPI header
+    let header_slice = &mut buffer[0..spi_proto::PROTOCOL_OVERHEAD];
+    spi.read(header_slice).await?;
+    trace!("SPI received header: {:x}", header_slice);
+    
+    let (register, operation_type, data_length) = process_spi_header(header_slice);
+    trace!("Register: {}, Operation: {}, Length: {}", register, operation_type, data_length);
+    
+    let register_id = match RegisterID::try_from(register) {
+        Ok(id) => id,
+        Err(_) => {
+            error!("Invalid register ID: {}", register);
+            return Ok(()); // Continue processing
+        }
+    };
+
+    match operation_type {
+        SpiPackOpType::Write => {
+            let write_buffer = &mut buffer[0..data_length as usize + spi_proto::PROTOCOL_CRC_SIZE];
+            spi.read(write_buffer).await?;
+            trace!("Received data: {:?}", write_buffer);
+            let data = process_spi_packet(write_buffer);
+            registry.update_registry(register_id, data);
+            let registry_data = registry.get_registry_data();
+            trace!("Registry updated: {:?}", registry_data);
+            
+            Ok(())
+        }
+        SpiPackOpType::Read => {
+            let total_response_size = data_length as usize + spi_proto::PROTOCOL_CRC_SIZE;
+            let response_buffer = &mut buffer[0..total_response_size];
+
+            let (data, crc_slice) = response_buffer.split_at_mut(data_length as usize); 
+            // Read data from registry
+            registry.read_registry(register_id, data);
+            trace!("Read data: {:x}", data);
+            
+            // Add CRC
+            populate_crc(data, crc_slice);
+            
+            // Send response
+            spi.write(response_buffer).await?;
+            trace!("Data sent: {:x}", response_buffer);
+            
+            Ok(())
+        }
     }
 }
 
@@ -185,4 +235,3 @@ async fn main(spawner: Spawner) {
         ticker.next().await;
     }
 }
-    

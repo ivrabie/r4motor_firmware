@@ -3,8 +3,11 @@
 
 # SPI protocol
 The SPI protocol used by the r4motor firmware is as follows:
-M -> reg_addr (2 byte) | req_len (2 bytes) | crc (2 bytes)
+Read sequence:
+M -> reg_addr (1 byte) | req_len (2 bytes) | crc (2 bytes)
 S -> data (req_len bytes) | crc (2 bytes)
+Write sequence:
+M -> reg_addr (1 byte) | req_len (2 bytes) | data (req_len bytes) | crc (2 bytes)
 
 ## Regs
 | Reg(2byte) | Description |  Default Value | Access | Detailed description |
