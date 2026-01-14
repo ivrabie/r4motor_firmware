@@ -63,7 +63,7 @@ pub fn validate_crc(buff: &[u8], recv_crc: u16) -> bool {
 
 pub fn process_spi_header(packet: &[u8]) -> (u8, SpiPackOpType, u16) {
     assert!(packet.len() == PROTOCOL_OVERHEAD,
-            "Packet size should be at least PROTOCOL_OVERHEAD received {}",
+            "Packet size should be exactly PROTOCOL_OVERHEAD received {}",
             packet.len());
     let reg_rw = packet[0];
     let crc_offset = PROTOCOL_OVERHEAD - PROTOCOL_CRC_SIZE;
