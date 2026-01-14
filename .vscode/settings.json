@@ -3,4 +3,17 @@
     "../embassy/**",
     "target/debug"
   ],
+  "github.copilot.advanced": {
+    "excludedFiles": [
+      "**/target/**",
+      "**/.git/**",
+      "**/Cargo.lock"
+    ]
+  },
+  "files.exclude": {
+    "**/target": true,
+    "**/.git": true
+  },
+  "terminal.integrated.fontFamily": "'MesloLGM Nerd Font', 'Meslo LG M for Powerline', Consolas, 'Courier New', monospace",
+  "terminal.integrated.fontSize": 13
 }
