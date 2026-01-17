@@ -1,4 +1,3 @@
-#![no_std]
 use defmt::*;
 use embassy_stm32::{
     gpio::{Level, Output},
