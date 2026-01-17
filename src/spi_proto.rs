@@ -2,8 +2,11 @@
 
 
 use crc::{Crc, CRC_16_IBM_SDLC};
+use embassy_stm32::pac;
 use embedded_hal::spi::{Operation as SpiOperation, SpiDevice};
 use defmt::{info, Format};
+
+use crate::registry::{RegisterID, ErrorCode};
 
 pub const PROTOCOL_OVERHEAD : usize = 5; // 1 byte reg, 2 bytes len, 2 bytes CRC
 pub const PROTOCOL_DATA_OFFSET: usize = 3;
@@ -69,18 +72,23 @@ pub fn process_spi_header(packet: &[u8]) -> (u8, SpiPackOpType, u16) {
     let crc_offset = PROTOCOL_OVERHEAD - PROTOCOL_CRC_SIZE;
     let reg = reg_rw & 0x7F;
     let rw_len = u16::from_le_bytes([packet[1], packet[2]]);
+    let reg_id = RegisterID::try_from(reg).map_err(|_| ErrorCode::InvalidRegisterAddress)?;
     let rw_type = SpiPackOpType::try_from((reg_rw >> 7) & 0x01).unwrap();
     
     let recv_crc = u16::from_le_bytes([packet[crc_offset], packet[crc_offset + 1]]);
     let is_valid = validate_crc(&packet[0..crc_offset], recv_crc);
-    assert!(is_valid, "CRC validation failed for received packet");
-    (reg, rw_type, rw_len)
+    if is_valid == false {
+        return Err(ErrorCode::CrcValidationFailed);
+    }
+    Ok((reg_id, rw_type, rw_len))
 }
 
-pub fn process_spi_packet(packet: &[u8]) -> &[u8] {
+pub fn process_spi_packet(packet: &[u8]) -> Result<&[u8], ErrorCode> {
     let data = &packet[0..packet.len() - PROTOCOL_CRC_SIZE];
     let recv_crc = u16::from_le_bytes([packet[packet.len() - 2], packet[packet.len() - 1]]);
     let is_valid = validate_crc(data, recv_crc);
-    assert!(is_valid, "CRC validation failed for received packet");
-    data
+    if is_valid == false {
+        return Err(ErrorCode::CrcValidationFailed);
+    }
+    Ok(data)
 }

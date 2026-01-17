@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![warn(unused_variables)]
 #![warn(unused_imports)]
 #![warn(dead_code)]
 
@@ -72,16 +71,17 @@ async fn handle_spi_transaction(
     spi.read(header_slice).await?;
     trace!("SPI received header: {:x}", header_slice);
     
-    let (register, operation_type, data_length) = process_spi_header(header_slice);
-    trace!("Register: {}, Operation: {}, Length: {}", register, operation_type, data_length);
-    
-    let register_id = match RegisterID::try_from(register) {
-        Ok(id) => id,
-        Err(_) => {
-            error!("Invalid register ID: {}", register);
+    let result = process_spi_header(header_slice);
+    let (register, operation_type, data_length) = match result {
+        Ok(vals) => vals,
+        Err(err_code) => {
+            error!("SPI header processing failed: {:?}", err_code);
+            registry.update_error_status(err_code);
             return Ok(()); // Continue processing
         }
     };
+    trace!("Register: {}, Operation: {}, Length: {}", register, operation_type, data_length);
+    
 
     match operation_type {
         SpiPackOpType::Write => {
@@ -89,7 +89,15 @@ async fn handle_spi_transaction(
             spi.read(write_buffer).await?;
             trace!("Received data: {:?}", write_buffer);
             let data = process_spi_packet(write_buffer);
-            registry.update_registry(register_id, data);
+            let data = match data {
+                Ok(d) => d,
+                Err(err_code) => {
+                    error!("SPI packet processing failed: {:?}", err_code);
+                    registry.update_error_status(err_code);
+                    return Ok(()); // Continue processing
+                }
+            };
+            registry.update_registry(register, data);
             let registry_data = registry.get_registry_data();
             trace!("Registry updated: {:?}", registry_data);
             
@@ -101,7 +109,7 @@ async fn handle_spi_transaction(
 
             let (data, crc_slice) = response_buffer.split_at_mut(data_length as usize); 
             // Read data from registry
-            registry.read_registry(register_id, data);
+            registry.read_registry(register, data);
             trace!("Read data: {:x}", data);
             
             // Add CRC
@@ -178,7 +186,7 @@ async fn main(spawner: Spawner) {
     // SPI configuration (Slave mode)
     let mut spi_config = SpiConfig::default();
     spi_config.frequency = khz(5000);
-    let mut spi = Spi ::new_slave(
+    let spi = Spi ::new_slave(
         p.SPI1,
         p.PA5,  // SCK
         p.PB5,  // MOSI
