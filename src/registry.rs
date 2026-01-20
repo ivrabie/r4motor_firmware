@@ -151,36 +151,36 @@ pub enum Direction {
 
 #[repr(C)]
 #[derive(Copy, Clone, Format)]
-struct DeviceInfo {
+pub struct DeviceInfo {
     device_id: [u8; 4],
     firmware_version: [u8; 4],
 }
 
 #[derive(Copy, Clone, Format)]
 #[repr(C)]
-struct MotorConfig {
-    control_mode: ControlMode,
-    direction: Direction,
-    pwm_duty_cycle: u32,
-    counts_per_revolution: u32,
-    pid_kp: u32,
-    pid_ki: u32,
-    pid_kd: u32,
-    rpm_desired: u32,
-    rpm_current: u32,
+pub struct MotorConfig {
+    pub control_mode: ControlMode,
+    pub direction: Direction,
+    pub pwm_duty_cycle: u32,
+    pub counts_per_revolution: u32,
+    pub pid_kp: u32,
+    pub pid_ki: u32,
+    pub pid_kd: u32,
+    pub rpm_desired: u32,
+    pub rpm_current: u32,
 }
 #[derive(Copy, Clone, Format)]
 #[repr(C)]
 pub struct RegistryData {
-    device_info: DeviceInfo,
-    motors: [MotorConfig; 4],
-    internal_loop_time: u32,
-    last_error_status: ErrorCode,
+    pub device_info: DeviceInfo,
+    pub motors: [MotorConfig; 4],
+    pub internal_loop_time: u32,
+    pub last_error_status: ErrorCode,
 }
 #[repr(C)]
 pub union RegistryUnion {
-    registry: RegistryData,
-    bytes: [u8; core::mem::size_of::<RegistryData>()],
+    pub registry: RegistryData,
+    pub bytes: [u8; core::mem::size_of::<RegistryData>()],
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -218,7 +218,7 @@ pub const MOTOR_REGISTER_CONFIGS: [RegisterConfig; 9] = [
 
 
 impl RegistryData {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         RegistryData {
             device_info: DeviceInfo {
                 device_id: *b"4MOT",
@@ -264,7 +264,7 @@ const fn create_register_config_with_macro() -> [RegisterConfig; 40] {
     configs
 }
 impl Registry {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Registry {
             data: RegistryUnion {
                 registry: RegistryData::new(),
@@ -356,7 +356,7 @@ impl Registry {
         self.data.registry.last_error_status = error;
     }
 
-    pub fn get_registry_data(&self) -> &RegistryData {
-        unsafe { &self.data.registry }
+    pub fn get_registry_data(&self) -> RegistryData {
+        unsafe { self.data.registry }
     }
 }

@@ -1,62 +1,67 @@
 #![no_std]
 #![no_main]
-#![warn(unused_imports)]
 #![warn(dead_code)]
 
 use defmt::*;
 use embassy_executor::Spawner;
 
+use embassy_sync::{blocking_mutex::raw::{
+                        ThreadModeRawMutex
+                },
+                signal::Signal,   
+};
+use embassy_futures::select::{ select, Either};
+
 use embassy_stm32::{
-    peripherals,
     gpio::{Level, Output, OutputType, Speed}, spi::{Config as SpiConfig ,Spi}, time::khz, timer::{
         qei::{Qei, Config as QeiConfig},
         simple_pwm::{PwmPin, SimplePwm},
-        GeneralInstance4Channel,
     }
 };
 
 use embassy_time::{Ticker, Duration};
 use {defmt_rtt as _, panic_probe as _};
 
-mod motor;
-use motor::*;
+mod car_ctrl;
+use car_ctrl::*;
 mod spi_proto;
 use spi_proto::*;
 mod registry;
 use registry::*;
-
+static REGISTRY_SIGNAL: Signal<ThreadModeRawMutex,registry::RegistryData> = Signal::new();
 const MOTOR_COUNT_PER_REV: u16 = 330; 
-
-
 
 #[embassy_executor::task]
 async fn motor_control_task(
-    mut motor1: Motor<'static, peripherals::TIM1, peripherals::TIM2>,
-    mut motor2: Motor<'static, peripherals::TIM1, peripherals::TIM3>,
-    mut motor3: Motor<'static, peripherals::TIM1, peripherals::TIM4>,
-    mut motor4: Motor<'static, peripherals::TIM1, peripherals::TIM5>
 ) {
 
+    let mut car_ctrl = build_car_hw_cfg();
     let mut ticker = Ticker::every(Duration::from_millis(10));
-    motor1.init();
-    motor2.init();
-    motor3.init();
-    motor4.init();
+    car_ctrl.init();
     loop {
-        ticker.next().await;
+        match select(ticker.next(), REGISTRY_SIGNAL.wait()).await {
+            Either::First(_)  => {
+                car_ctrl.ctrl_loop();
+            }
+            Either::Second(cfg) => {
+                car_ctrl.apply_cfg(&cfg);
+            }
+        }
     }
 
 }
 
 #[embassy_executor::task]
 async fn spi_task(mut spi: Spi<'static, embassy_stm32::mode::Async, embassy_stm32::spi::mode::Slave>) {
-    let mut registry = Registry::new();
     let mut protocol_buffer = [0u8; spi_proto::PROTOCOL_MAX_BUFFER_SIZE];
+    let mut reg = Registry::new();
     
     loop {
-        if let Err(e) = handle_spi_transaction(&mut spi, &mut registry, &mut protocol_buffer).await {
+        if let Err(e) = handle_spi_transaction(&mut spi, &mut reg, &mut protocol_buffer).await {
             error!("SPI transaction failed: {:?}", e);
             // Continue processing despite errors
+        } else {
+            REGISTRY_SIGNAL.signal(reg.get_registry_data());
         }
     }
 }
@@ -100,7 +105,6 @@ async fn handle_spi_transaction(
             registry.update_registry(register, data);
             let registry_data = registry.get_registry_data();
             trace!("Registry updated: {:?}", registry_data);
-            
             Ok(())
         }
         SpiPackOpType::Read => {
@@ -124,28 +128,25 @@ async fn handle_spi_transaction(
     }
 }
 
-
-
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
+pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     let p = embassy_stm32::init(Default::default());
     info!("Hello World!");
 
     // DC driver 1 configuration
-    let mut m1_ins_a = Output::new(p.PB2, Level::Low, Speed::Low);
-    let mut m1_ins_b = Output::new(p.PB10, Level::Low, Speed::Low);
-    let mut m2_ins_a = Output::new(p.PB12, Level::Low, Speed::Low);
-    let mut m2_ins_b = Output::new(p.PB13, Level::Low, Speed::Low);
+    let m1_ins_a = Output::new(p.PB2, Level::Low, Speed::Low);
+    let m1_ins_b = Output::new(p.PB10, Level::Low, Speed::Low);
+    let m2_ins_a = Output::new(p.PB12, Level::Low, Speed::Low);
+    let m2_ins_b = Output::new(p.PB13, Level::Low, Speed::Low);
 
     // DC driver 2 configuration
-    let mut m3_ins_a = Output::new(p.PC14, Level::Low, Speed::Low);
-    let mut m3_ins_b = Output::new(p.PC15, Level::Low, Speed::Low);
-    let mut m4_ins_a = Output::new(p.PB0, Level::Low, Speed::Low);
-    let mut m4_ins_b = Output::new(p.PB1, Level::Low, Speed::Low);
+    let m3_ins_a = Output::new(p.PC14, Level::Low, Speed::Low);
+    let m3_ins_b = Output::new(p.PC15, Level::Low, Speed::Low);
+    let m4_ins_a = Output::new(p.PB0, Level::Low, Speed::Low);
+    let m4_ins_b = Output::new(p.PB1, Level::Low, Speed::Low);
 
     // Driver control state
-    let mut vcc_gpio = Output::new(p.PC13, Level::High, Speed::Low);
-    let mut standby_gpio = Output::new(p.PA12, Level::Low, Speed::Low);
+    let vcc_gpio = Output::new(p.PC13, Level::High, Speed::Low);
+    let standby_gpio = Output::new(p.PA12, Level::Low, Speed::Low);
 
     // PWM configuration
     let ch1_pin = PwmPin::new(p.PA8, OutputType::PushPull);
@@ -163,39 +164,17 @@ async fn main(spawner: Spawner) {
     );
     // Split PWM channels
     let simple_pwm_channels = pwm.split();
-    let mut mot1_pwm = simple_pwm_channels.ch1;
-    let mut mot2_pwm = simple_pwm_channels.ch2;
-    let mut mot3_pwm = simple_pwm_channels.ch3;
-    let mut mot4_pwm = simple_pwm_channels.ch4;
-
-    mot1_pwm.enable();
-    mot2_pwm.enable();
-    mot3_pwm.enable();
-    mot4_pwm.enable();
-
+    let mot1_pwm = simple_pwm_channels.ch1;
+    let mot2_pwm = simple_pwm_channels.ch2;
+    let mot3_pwm = simple_pwm_channels.ch3;
+    let mot4_pwm = simple_pwm_channels.ch4;
 
     // Quadrature configuration
-
     let qei_config = QeiConfig::default();
     let qei_motor1 = Qei::new(p.TIM2, p.PA15, p.PB3, qei_config);
     let qei_motor2 = Qei::new(p.TIM3, p.PA6, p.PA7, qei_config);
     let qei_motor3 = Qei::new(p.TIM4, p.PB6, p.PB7, qei_config);
     let qei_motor4 = Qei::new(p.TIM5, p.PA0, p.PA1, qei_config);
-
-
-    // SPI configuration (Slave mode)
-    let mut spi_config = SpiConfig::default();
-    spi_config.frequency = khz(5000);
-    let spi = Spi ::new_slave(
-        p.SPI1,
-        p.PA5,  // SCK
-        p.PB5,  // MOSI
-        p.PB4,  // MISO
-        p.PA4,  // CS
-        p.DMA2_CH3,
-        p.DMA2_CH2,
-        spi_config,
-    );
 
     let motor1 = Motor::new(
         mot1_pwm,
@@ -229,13 +208,38 @@ async fn main(spawner: Spawner) {
         MOTOR_COUNT_PER_REV
     );
 
-    spawner.spawn(motor_control_task(
+    Car::new(
         motor1,
         motor2,
         motor3,
-        motor4
+        motor4,
+        vcc_gpio,
+        standby_gpio
+    )
+}
+
+
+#[embassy_executor::main]
+async fn main(spawner: Spawner) {
+    let p = embassy_stm32::init(Default::default());
+    // SPI configuration (Slave mode)S
+    let mut spi_config = SpiConfig::default();
+    spi_config.frequency = khz(5000);
+    let spi = Spi ::new_slave(
+        p.SPI1,
+        p.PA5,  // SCK
+        p.PB5,  // MOSI
+        p.PB4,  // MISO
+        p.PA4,  // CS
+        p.DMA2_CH3,
+        p.DMA2_CH2,
+        spi_config,
+    );
+    spawner.spawn(motor_control_task().unwrap());
+
+    spawner.spawn(spi_task(
+        spi,
     ).unwrap());
-    spawner.spawn(spi_task(spi).unwrap());
 
     let mut ticker = Ticker::every(Duration::from_millis(100));
 

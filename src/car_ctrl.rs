@@ -1,11 +1,12 @@
 use defmt::*;
 use embassy_stm32::{
-    gpio::{Level, Output},
+    gpio::{Output},
     timer::{GeneralInstance4Channel, 
     qei::{Qei, Direction },
     simple_pwm::SimplePwmChannel},
 };
 
+use crate::registry;
 pub enum MDirection {
     Stop,
     Forward,
@@ -21,6 +22,16 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub last_count: u16,
     pub last_time: u64,
 }
+
+pub struct Car<'a> {
+    pub motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+    pub motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
+    pub motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
+    pub motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
+    pub vcc_gpio: Output<'a>,
+    pub standby_gpio: Output<'a>
+
+} 
 
 
 impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q> {
@@ -111,5 +122,46 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         info!("Current RPM: {}", rpm);
         self.last_time = current_time;
     }
+}
 
+impl<'a> Car<'a> {
+    pub fn new(
+        motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+        motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
+        motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
+        motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
+        vcc_gpio: Output<'a>,
+        standby_gpio: Output<'a>,
+
+    ) -> Self {
+        Self {
+            motor1,
+            motor2,
+            motor3,
+            motor4,
+            vcc_gpio,
+            standby_gpio,
+        }
+    }
+
+    pub fn init(&mut self)
+    {
+        self.vcc_gpio.set_high();
+        self.standby_gpio.set_high();
+        self.motor1.init();
+        self.motor2.init();
+        self.motor3.init();
+        self.motor4.init();
+    }
+
+    pub fn apply_cfg(&mut self, _reg_data: &registry::RegistryData ) {
+
+    }
+
+    pub fn ctrl_loop(&mut self){
+        self.motor1.ctrl_loop();
+        self.motor2.ctrl_loop();
+        self.motor3.ctrl_loop();
+        self.motor4.ctrl_loop();
+    }
 }
