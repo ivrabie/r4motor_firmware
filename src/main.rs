@@ -8,6 +8,13 @@ use heapless::Vec;
 
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
+use embassy_sync::{blocking_mutex::raw::{
+                        ThreadModeRawMutex
+                },
+                signal::Signal,   
+};
+use embassy_futures::select::{ select, Either};
+
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed},
     spi::{Config as SpiConfig, Spi},
