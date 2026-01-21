@@ -1,4 +1,4 @@
-use defmt::*;
+use defmt::{info};
 use embassy_stm32::{
     gpio::{Output},
     timer::{GeneralInstance4Channel, 
@@ -6,21 +6,29 @@ use embassy_stm32::{
     simple_pwm::SimplePwmChannel},
 };
 
-use crate::registry;
-pub enum MDirection {
-    Stop,
-    Forward,
-    Backward,
-}
+use crate::registry as reg;
 
+#[derive(Debug, Clone, Copy)]
+pub struct MotorCurrState {
+    pub rpm: i32,
+    pub direction: reg::Direction,
+    pub pwm_duty: i32,
+}
+#[derive(Debug, Clone, Copy)]
+pub struct CarCurrState {
+    pub motors: [MotorCurrState; 4],
+}
 pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub pwm: SimplePwmChannel<'a, S>,
     pub ins_a: Output<'a>,
     pub ins_b: Output<'a>,
     pub qei: Qei<'a, Q>,
-    pub count_per_rev: u16,
-    pub last_count: u16,
+    pub desired_rpm: f32,
+    pub last_rpm: f32,
+    pub count_per_rev: u32,
+    pub last_count: u32,
     pub last_time: u64,
+    pub control_mode: reg::ControlMode,
 }
 
 pub struct Car<'a> {
@@ -40,7 +48,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         ins_a: Output<'a>,
         ins_b: Output<'a>,
         qei: Qei<'a, Q>,
-        count_per_rev: u16,
+        count_per_rev: u32,
     ) -> Self {
         Self {
             pwm,
@@ -49,7 +57,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             qei,
             count_per_rev: count_per_rev,
             last_count: 0,
+            last_rpm: 0.0,
             last_time: embassy_time::Instant::now().as_millis(),
+            desired_rpm: 0.0,
+            control_mode: reg::ControlMode::PwmControl,
         }
     }
 
@@ -60,40 +71,41 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         self.pwm.enable();
     }
 
-    pub fn set_direction(&mut self, dir:MDirection)
+    pub fn set_direction(&mut self, dir:reg::Direction)
     {
         self.ins_a.set_low();
         self.ins_b.set_low();
         match dir {
-            MDirection::Forward => {
+            reg::Direction::Forward => {
                 self.ins_a.set_high();
                 self.ins_b.set_low();
             }
-            MDirection::Backward => {
+            reg::Direction::Backward => {
                 self.ins_a.set_low();
                 self.ins_b.set_high();
             }
-            MDirection::Stop => {
+            reg::Direction::Stop => {
                 self.ins_a.set_low();
                 self.ins_b.set_low();
             }
         }
     }
 
-    pub fn set_pwm_duty(&mut self, duty:u8)
+    pub fn set_pwm_duty(&mut self, duty:i32)
     {
-        self.pwm.set_duty_cycle_percent(duty);
+        assert!(duty >= 0 && duty <= 100, "PWM duty cycle must be between 0 and 100");
+        self.pwm.set_duty_cycle_percent(duty as u8);
     }
 
-    pub fn get_direction(&mut self) -> MDirection
+    pub fn get_direction(&mut self) -> reg::Direction 
     {
         if self.ins_a.is_set_low() && self.ins_b.is_set_low() && 
            self.pwm.current_duty_cycle() == 0 {
-            MDirection::Stop
+            reg::Direction::Stop
         } else {
             match self.qei.read_direction() {
-                Direction::Upcounting => MDirection::Forward,
-                Direction::Downcounting => MDirection::Backward,
+                Direction::Upcounting =>reg::Direction::Forward,
+                Direction::Downcounting => reg::Direction::Backward,
             }
         }
     }
@@ -110,16 +122,40 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         let interval_ms = interval_ms as f32;
         let count_per_rev = self.count_per_rev as f32;
         let rpm = (count - last_count) / count_per_rev / (interval_ms / 60000.0);
-        self.last_count = count as u16;
+        self.last_count = count as u32;
         rpm
     }
 
 
+    pub fn apply_cfg(&mut self, mot_cfg: &reg::MotorConfig) {
+        self.control_mode = mot_cfg.control_mode;
+        if self.control_mode == reg::ControlMode::PwmControl {
+            if mot_cfg.direction != self.get_direction() {
+                self.set_direction(mot_cfg.direction);
+            }
+            self.set_pwm_duty(mot_cfg.pwm_duty_cycle);
+
+        }
+        self.count_per_rev = mot_cfg.counts_per_revolution as u32;
+        self.desired_rpm = mot_cfg.rpm_desired as f32;
+    }
+
+    pub fn get_curr_state(&mut self) -> MotorCurrState {
+        MotorCurrState {
+            rpm: self.last_rpm as i32,
+            direction: self.get_direction(),
+            pwm_duty: self.pwm.current_duty_cycle() as i32,
+        }
+    }
+
     pub fn ctrl_loop(&mut self){
         let current_time  =  embassy_time::Instant::now().as_millis();
         let interval_ms = (current_time - self.last_time) as u32;
-        let rpm = self.calculate_rpm(interval_ms) as u32;
-        info!("Current RPM: {}", rpm);
+        let rpm = self.calculate_rpm(interval_ms);
+        if self.last_rpm !=  rpm {
+            self.last_rpm = rpm;
+            info!("Motor rpm {:?}", rpm);
+        }
         self.last_time = current_time;
     }
 }
@@ -154,8 +190,22 @@ impl<'a> Car<'a> {
         self.motor4.init();
     }
 
-    pub fn apply_cfg(&mut self, _reg_data: &registry::RegistryData ) {
+    pub fn apply_cfg(&mut self, reg_data: &reg::RegistryData) {
+        self.motor1.apply_cfg(&reg_data.motors[0]);
+        self.motor2.apply_cfg(&reg_data.motors[1]);
+        self.motor3.apply_cfg(&reg_data.motors[2]);
+        self.motor4.apply_cfg(&reg_data.motors[3]);
+    }
 
+    pub fn get_curr_state(&mut self) -> CarCurrState {
+        CarCurrState {
+            motors: [
+                self.motor1.get_curr_state(),
+                self.motor2.get_curr_state(),
+                self.motor3.get_curr_state(),
+                self.motor4.get_curr_state(),
+            ],
+        }
     }
 
     pub fn ctrl_loop(&mut self){
