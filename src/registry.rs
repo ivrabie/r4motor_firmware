@@ -441,6 +441,20 @@ impl Registry {
         }
     }
 
+    pub fn update_car_state(&mut self, car_state: &car_ctrl::CarCurrState) {
+        for (i, motor_state) in car_state.motors.iter().enumerate() {
+            let motor_cfg = &mut unsafe {
+                &mut self.data.registry.motors[i]
+            };
+            motor_cfg.rpm_current = motor_state.rpm;
+            if motor_cfg.control_mode == ControlMode::RpmControl {
+                motor_cfg.pwm_duty_cycle = motor_state.pwm_duty;
+                motor_cfg.direction = motor_state.direction;
+
+            } 
+        }
+    }
+
     pub fn update_error_status(&mut self, error: ErrorCode) {
         self.data.registry.last_error_status = error;
     }
