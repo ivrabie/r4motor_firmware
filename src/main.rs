@@ -177,14 +177,14 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     // DC driver 1 configuration
     let m1_ins_a = Output::new(per.PB2, Level::Low, Speed::Low);
     let m1_ins_b = Output::new(per.PB10, Level::Low, Speed::Low);
-    let m2_ins_a = Output::new(per.PB12, Level::Low, Speed::Low);
-    let m2_ins_b = Output::new(per.PB13, Level::Low, Speed::Low);
+    let m2_ins_a = Output::new(per.PB13, Level::Low, Speed::Low);
+    let m2_ins_b = Output::new(per.PB12, Level::Low, Speed::Low);
 
     // DC driver 2 configuration
     let m3_ins_a = Output::new(per.PC14, Level::Low, Speed::Low);
     let m3_ins_b = Output::new(per.PC15, Level::Low, Speed::Low);
-    let m4_ins_a = Output::new(per.PB0, Level::Low, Speed::Low);
-    let m4_ins_b = Output::new(per.PB1, Level::Low, Speed::Low);
+    let m4_ins_a = Output::new(per.PB1, Level::Low, Speed::Low);
+    let m4_ins_b = Output::new(per.PB0, Level::Low, Speed::Low);
 
     // Driver control state
     let vcc_gpio = Output::new(per.PC13, Level::High, Speed::Low);
@@ -205,17 +205,17 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     );
     // Split PWM channels
     let simple_pwm_channels = pwm.split();
-    let mot1_pwm = simple_pwm_channels.ch1;
-    let mot2_pwm = simple_pwm_channels.ch2;
+    let mot1_pwm = simple_pwm_channels.ch2;
+    let mot2_pwm = simple_pwm_channels.ch1;
     let mot3_pwm = simple_pwm_channels.ch3;
     let mot4_pwm = simple_pwm_channels.ch4;
 
     // Quadrature configuration
     let qei_config = QeiConfig::default();
-    let qei_motor1 = Qei::new(per.TIM2, per.PA15, per.PB3, qei_config);
+    let qei_motor1 = Qei::new(per.TIM5, per.PA0, per.PA1, qei_config);
+    let qei_motor4 = Qei::new(per.TIM2, per.PA15, per.PB3, qei_config);
     let qei_motor2 = Qei::new(per.TIM3, per.PA6, per.PA7, qei_config);
     let qei_motor3 = Qei::new(per.TIM4, per.PB6, per.PB7, qei_config);
-    let qei_motor4 = Qei::new(per.TIM5, per.PA0, per.PA1, qei_config);
 
     let motor1 = Motor::new(
         mot1_pwm,

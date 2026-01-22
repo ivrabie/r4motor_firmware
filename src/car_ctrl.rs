@@ -32,10 +32,10 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
 }
 
 pub struct Car<'a> {
-    pub motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+    pub motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
     pub motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
     pub motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
-    pub motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
+    pub motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
     pub vcc_gpio: Output<'a>,
     pub standby_gpio: Output<'a>
 
@@ -154,7 +154,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         let rpm = self.calculate_rpm(interval_ms);
         if self.last_rpm !=  rpm {
             self.last_rpm = rpm;
-            info!("Motor rpm {:?}", rpm);
+            // info!("Motor rpm {:?}", rpm);
         }
         self.last_time = current_time;
     }
@@ -162,10 +162,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
 
 impl<'a> Car<'a> {
     pub fn new(
-        motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+        motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
         motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
         motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
-        motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
+        motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
         vcc_gpio: Output<'a>,
         standby_gpio: Output<'a>,
 
