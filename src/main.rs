@@ -4,6 +4,7 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
+use heapless::Vec;
 
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
@@ -26,13 +27,21 @@ mod spi_proto;
 use spi_proto::*;
 mod registry;
 
-static REGISTRY: Mutex<ThreadModeRawMutex, registry::Registry> = Mutex::new(registry::Registry::new());
+static REGISTRY: Mutex<ThreadModeRawMutex, registry::Registry> =
+    Mutex::new(registry::Registry::new());
 const MOTOR_COUNT_PER_REV: u32 = 330;
 
 #[embassy_executor::task]
 async fn motor_control_task() {
     let mut car_ctrl = build_car_hw_cfg();
     let mut ticker = Ticker::every(Duration::from_millis(10));
+    let default_motor_state = MotorCurrState {
+        rpm: 0,
+        direction: registry::Direction::Stop,
+        pwm_duty: 0,
+    };
+    let motors: Vec<MotorCurrState, 4> = Vec::from_slice(&[default_motor_state; 4]).unwrap();
+    let mut prev_car_state = CarCurrState { motors };
     car_ctrl.init();
     loop {
         // match select(ticker.next(), REGISTRY_SIGNAL.wait()).await {
@@ -51,9 +60,10 @@ async fn motor_control_task() {
         car_ctrl.apply_cfg(&reg_data);
         car_ctrl.ctrl_loop();
         let car_curr_status = car_ctrl.get_curr_state();
-        {
+        if car_curr_status != prev_car_state {
             let mut registry = REGISTRY.lock().await;
             registry.update_car_state(&car_curr_status);
+            prev_car_state = car_curr_status;
         }
         ticker.next().await;
     }
@@ -138,7 +148,7 @@ async fn handle_spi_transaction(
                 }
             };
             // registry.update_registry(register, data);
-            let registry_data= {
+            let registry_data = {
                 let mut registry = REGISTRY.lock().await;
                 registry.update_registry(register, data);
                 registry.get_registry_data()
@@ -218,6 +228,7 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     let qei_motor3 = Qei::new(per.TIM4, per.PB6, per.PB7, qei_config);
 
     let motor1 = Motor::new(
+        "MOTOR_1",
         mot1_pwm,
         m1_ins_a,
         m1_ins_b,
@@ -226,6 +237,7 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     );
 
     let motor2 = Motor::new(
+        "MOTOR_2",
         mot2_pwm,
         m2_ins_a,
         m2_ins_b,
@@ -234,6 +246,7 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     );
 
     let motor3 = Motor::new(
+        "MOTOR_3",
         mot3_pwm,
         m3_ins_a,
         m3_ins_b,
@@ -242,6 +255,7 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     );
 
     let motor4 = Motor::new(
+        "MOTOR_4",
         mot4_pwm,
         m4_ins_a,
         m4_ins_b,

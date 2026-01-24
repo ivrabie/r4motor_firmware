@@ -60,11 +60,11 @@
 - Error status register clears to NoError when read
 */
 
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use defmt::{Format, info};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::spi_proto;
 use crate::car_ctrl;
+use crate::spi_proto;
 macro_rules! copy_motor_configs {
     ($configs:expr, $start_idx:expr, $motor_cfg:expr) => {
         $configs[$start_idx + 0] = $motor_cfg[0]; // Control Mode
@@ -142,7 +142,7 @@ pub enum ControlMode {
     RpmControl = 1,
 }
 #[repr(u32)]
-#[derive(Debug, Clone, Copy, Format, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)] 
+#[derive(Debug, Clone, Copy, Format, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 pub enum Direction {
     Stop = 0,
     Forward = 1,
@@ -205,18 +205,52 @@ pub const MOTOR_MAX_DESIRED_RPM: i32 = 200;
 pub const MOTOR_DEFAULT_REV_COUNT: i32 = 330;
 
 pub const MOTOR_REGISTER_CONFIGS: [RegisterConfig; 9] = [
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: ControlMode::PwmControl as i32, high_range: ControlMode::RpmControl as i32 }, // Control Mode
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: Direction::Stop as i32, high_range: Direction::Backward as i32 }, // direction
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 0, high_range: MOTOR_MAX_PWM_DUTY_CYCLE }, // pwm duty cycle
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 1, high_range: i32::MAX}, // counts per revolution
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 0, high_range: i32::MAX }, // pid kp
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 0, high_range: i32::MAX }, // pid ki
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 0, high_range: i32::MAX }, // pid kd
-    RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: -MOTOR_MAX_DESIRED_RPM, high_range: MOTOR_MAX_DESIRED_RPM }, // rpm desired
-    RegisterConfig { access: RegisterAccessType::ReadOnly, low_range: i32::MIN, high_range: i32::MAX }, // rpm current
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: ControlMode::PwmControl as i32,
+        high_range: ControlMode::RpmControl as i32,
+    }, // Control Mode
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: Direction::Stop as i32,
+        high_range: Direction::Backward as i32,
+    }, // direction
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 0,
+        high_range: MOTOR_MAX_PWM_DUTY_CYCLE,
+    }, // pwm duty cycle
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 1,
+        high_range: i32::MAX,
+    }, // counts per revolution
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 0,
+        high_range: i32::MAX,
+    }, // pid kp
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 0,
+        high_range: i32::MAX,
+    }, // pid ki
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 0,
+        high_range: i32::MAX,
+    }, // pid kd
+    RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: -MOTOR_MAX_DESIRED_RPM,
+        high_range: MOTOR_MAX_DESIRED_RPM,
+    }, // rpm desired
+    RegisterConfig {
+        access: RegisterAccessType::ReadOnly,
+        low_range: i32::MIN,
+        high_range: i32::MAX,
+    }, // rpm current
 ];
-
-
 
 impl RegistryData {
     pub const fn new() -> Self {
@@ -249,18 +283,50 @@ const fn create_register_config_with_macro() -> [RegisterConfig; 40] {
     }; 40];
 
     // Device registers
-    configs[RegisterID::DeviceID as usize] = RegisterConfig { access: RegisterAccessType::ReadOnly, low_range: 0, high_range: 0 };
-    configs[RegisterID::FirmwareVersion as usize] = RegisterConfig { access: RegisterAccessType::ReadOnly, low_range: 0, high_range: 0 };
+    configs[RegisterID::DeviceID as usize] = RegisterConfig {
+        access: RegisterAccessType::ReadOnly,
+        low_range: 0,
+        high_range: 0,
+    };
+    configs[RegisterID::FirmwareVersion as usize] = RegisterConfig {
+        access: RegisterAccessType::ReadOnly,
+        low_range: 0,
+        high_range: 0,
+    };
 
     // Copy motor configs for all 4 motors
-    copy_motor_configs!(configs, RegisterID::Motor1OperationMode as usize, MOTOR_REGISTER_CONFIGS); // Motor 1
-    copy_motor_configs!(configs, RegisterID::Motor2OperationMode as usize, MOTOR_REGISTER_CONFIGS); // Motor 2
-    copy_motor_configs!(configs, RegisterID::Motor3OperationMode as usize, MOTOR_REGISTER_CONFIGS); // Motor 3
-    copy_motor_configs!(configs, RegisterID::Motor4OperationMode as usize, MOTOR_REGISTER_CONFIGS); // Motor 4
+    copy_motor_configs!(
+        configs,
+        RegisterID::Motor1OperationMode as usize,
+        MOTOR_REGISTER_CONFIGS
+    ); // Motor 1
+    copy_motor_configs!(
+        configs,
+        RegisterID::Motor2OperationMode as usize,
+        MOTOR_REGISTER_CONFIGS
+    ); // Motor 2
+    copy_motor_configs!(
+        configs,
+        RegisterID::Motor3OperationMode as usize,
+        MOTOR_REGISTER_CONFIGS
+    ); // Motor 3
+    copy_motor_configs!(
+        configs,
+        RegisterID::Motor4OperationMode as usize,
+        MOTOR_REGISTER_CONFIGS
+    ); // Motor 4
 
     // System registers
-    configs[RegisterID::InternalLoopTime as usize] = RegisterConfig { access: RegisterAccessType::ReadWrite, low_range: 1, high_range: 10000 };
-    configs[RegisterID::LastErrorStatus as usize] = RegisterConfig { access: RegisterAccessType::ReadOnly, low_range: ErrorCode::NoError as i32, high_range: ErrorCode::WriteNotAllowedInThisControlMode as i32 };
+    configs[RegisterID::InternalLoopTime as usize] = RegisterConfig {
+        access: RegisterAccessType::ReadWrite,
+        low_range: 1,
+        high_range: 10000,
+    };
+    configs[RegisterID::LastErrorStatus as usize] = RegisterConfig {
+        access: RegisterAccessType::ReadOnly,
+        low_range: ErrorCode::NoError as i32,
+        high_range: ErrorCode::WriteNotAllowedInThisControlMode as i32,
+    };
 
     configs
 }
@@ -287,13 +353,15 @@ impl Registry {
             }
         }
     }
-    
+
     pub fn update_registry(&mut self, reg_id: RegisterID, data: &[u8]) {
         let u32_size = core::mem::size_of::<u32>();
         let reg_offset = reg_id as usize * u32_size;
         let end_offset = RegisterID::LastErrorStatus as usize * u32_size + u32_size;
-        assert!(reg_offset + data.len() <= end_offset,
-                "Data write exceeds registry bounds");
+        assert!(
+            reg_offset + data.len() <= end_offset,
+            "Data write exceeds registry bounds"
+        );
         if data.len() % 4 != 0 {
             self.update_error_status(ErrorCode::InvalidRequestLength);
             return;
@@ -313,15 +381,17 @@ impl Registry {
                 return;
             }
         }
-        let registry_bytes = unsafe {&mut self.data.bytes};
+        let registry_bytes = unsafe { &mut self.data.bytes };
         registry_bytes[reg_offset..reg_offset + data.len()].copy_from_slice(data);
         info!("Updated buffer {}", registry_bytes);
         for i in 0..spi_proto::DEVICE_SUPPORTED_MOTORS {
-            let motor_cfg = unsafe {
-                self.data.registry.motors[i]
-            };
-            let reg_pwm_idx = (RegisterID::Motor1PWMDutyCycle as usize + i * spi_proto::DEVICE_MOTOR_BLOCK_COUNT as usize) as u8;  
-            let reg_dir_idx = (RegisterID::Motor1Direction as usize + i * spi_proto::DEVICE_MOTOR_BLOCK_COUNT as usize) as u8;  
+            let motor_cfg = unsafe { self.data.registry.motors[i] };
+            let reg_pwm_idx = (RegisterID::Motor1PWMDutyCycle as usize
+                + i * spi_proto::DEVICE_MOTOR_BLOCK_COUNT as usize)
+                as u8;
+            let reg_dir_idx = (RegisterID::Motor1Direction as usize
+                + i * spi_proto::DEVICE_MOTOR_BLOCK_COUNT as usize)
+                as u8;
             if motor_cfg.control_mode == ControlMode::RpmControl {
                 self.register_configs[reg_pwm_idx as usize].access = RegisterAccessType::ReadOnly;
                 self.register_configs[reg_dir_idx as usize].access = RegisterAccessType::ReadOnly;
@@ -334,38 +404,40 @@ impl Registry {
         }
     }
 
-
     pub fn read_registry(&mut self, reg_id: RegisterID, data: &mut [u8]) {
         let u32_size = core::mem::size_of::<u32>();
         let reg_offset = reg_id as usize * u32_size;
         let end_offset = RegisterID::LastErrorStatus as usize * u32_size + u32_size;
-        assert!(reg_offset + data.len() <= end_offset,
-                "Data read exceeds registry bounds");
-        assert!(data.len() % 4 == 0,
-                "Data length must be multiple of 4 bytes");
-        let registry_bytes = unsafe {&self.data.bytes};
-        info!("Reg offset {} and reg offset end {}", reg_offset, reg_offset + data.len());
+        assert!(
+            reg_offset + data.len() <= end_offset,
+            "Data read exceeds registry bounds"
+        );
+        assert!(
+            data.len() % 4 == 0,
+            "Data length must be multiple of 4 bytes"
+        );
+        let registry_bytes = unsafe { &self.data.bytes };
+        info!(
+            "Reg offset {} and reg offset end {}",
+            reg_offset,
+            reg_offset + data.len()
+        );
         data.copy_from_slice(&registry_bytes[reg_offset..reg_offset + data.len()]);
         let no_of_regs = data.len() / 4;
         let last_reg_id = RegisterID::try_from((reg_id as usize + no_of_regs - 1) as u8).unwrap();
         if last_reg_id >= RegisterID::LastErrorStatus {
             self.update_error_status(ErrorCode::NoError);
         }
-        
-
     }
 
     pub fn update_car_state(&mut self, car_state: &car_ctrl::CarCurrState) {
         for (i, motor_state) in car_state.motors.iter().enumerate() {
-            let motor_cfg = &mut unsafe {
-                &mut self.data.registry.motors[i]
-            };
+            let motor_cfg = &mut unsafe { &mut self.data.registry.motors[i] };
             motor_cfg.rpm_current = motor_state.rpm;
             if motor_cfg.control_mode == ControlMode::RpmControl {
                 motor_cfg.pwm_duty_cycle = motor_state.pwm_duty;
                 motor_cfg.direction = motor_state.direction;
-
-            } 
+            }
         }
     }
 
