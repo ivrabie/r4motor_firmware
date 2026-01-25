@@ -47,7 +47,10 @@
         {
           "coreIndex": 0,
           "programBinary": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/r4motor_firmware",
+<<<<<<< HEAD
           "svdFile": "${workspaceFolder}/STM32F411.svd",
+=======
+>>>>>>> 592691e (Update configuration and launch settings for motor control firmware)
           "rttEnabled": true,
           "rttChannelFormats": [
             {
