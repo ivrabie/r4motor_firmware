@@ -3,7 +3,7 @@
   "configurations": [
     {
       // Configure a default build task for 'cargo build'
-      "preLaunchTask": "build-and-copy",
+      "preLaunchTask": "copy-elf-to-remote",
       "type": "probe-rs-debug",
       "request": "launch",
       "name": "probe_rs debug remote",
@@ -47,6 +47,7 @@
         {
           "coreIndex": 0,
           "programBinary": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/r4motor_firmware",
+          "svdFile": "${workspaceFolder}/STM32F411.svd",
           "rttEnabled": true,
           "rttChannelFormats": [
             {
