@@ -15,5 +15,26 @@
     "**/.git": true
   },
   "terminal.integrated.fontFamily": "'MesloLGM Nerd Font', 'Meslo LG M for Powerline', Consolas, 'Courier New', monospace",
-  "terminal.integrated.fontSize": 13
+  "terminal.integrated.fontSize": 13,
+  "rust-analyzer.diagnostics.enable": false,
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/sources/poky/bitbake/lib",
+    "${workspaceFolder}/sources/poky/meta/lib"
+  ],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/sources/poky/bitbake/lib",
+    "${workspaceFolder}/sources/poky/meta/lib"
+  ],
+  "[python]": {
+    "diffEditor.ignoreTrimWhitespace": false,
+    "editor.defaultColorDecorators": "never",
+    "editor.formatOnType": true,
+    "editor.wordBasedSuggestions": "off",
+    "files.trimTrailingWhitespace": false
+  },
+  "[shellscript]": {
+    "files.eol": "\n",
+    "editor.defaultColorDecorators": "never",
+    "files.trimTrailingWhitespace": false
+  },
 }

@@ -1,6 +1,6 @@
 [package]
 edition = "2024"
-name = "dc_motor_firmware"
+name = "r4motor_firmware"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
 publish = false
@@ -11,6 +11,7 @@ embassy-stm32 = { git = "https://github.com/embassy-rs/embassy", branch = "main"
 embassy-sync = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["defmt"] }
 embassy-executor = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
 embassy-time = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
+embassy-futures = { git = "https://github.com/embassy-rs/embassy", branch = "main"}
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
 
@@ -20,6 +21,7 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 num_enum = { version = "0.7.5" , default-features = false, features = ["complex-expressions"] }
 embedded-hal = { version = "1.0.0" }
 crc = { version = "3", default-features = false }
+heapless = { version = "0.8", default-features = false }
 [profile.release]
 debug = 2
 

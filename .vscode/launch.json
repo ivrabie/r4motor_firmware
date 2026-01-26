@@ -1,0 +1,67 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Configure a default build task for 'cargo build'
+      "preLaunchTask": "copy-elf-to-remote",
+      "type": "probe-rs-debug",
+      "request": "launch",
+      "name": "probe_rs debug remote",
+      //!MODIFY ... can be a server that is remote from the VSCode session, but local to the probe
+      "server": "192.168.1.146:50000",
+      "cwd": "${workspaceFolder}",
+      "chip": "STM32F411CEUx",
+      "flashingConfig": {
+        "flashingEnabled": true,
+      },
+      "coreConfigs": [
+        {
+          "programBinary": "/root/r4motor_firmware",
+          "rttEnabled": true,
+          "rttChannelFormats": [
+            {
+              "channelNumber": 0,
+              "dataFormat": "Defmt",
+              "showLocation": true
+            }
+          ]
+        }
+      ],
+      //!This won't take effect. Please set environment variables before launching `probe-rs dap-server`.
+      "env": {},
+      // Info, Debug
+      "consoleLogLevel": "Console"
+    },
+    {
+      // Configure a default build task for 'cargo build'
+      "type": "probe-rs-debug",
+      "request": "launch",
+      "name": "probe_rs debug local",
+      "cwd": "${workspaceFolder}",
+      "chip": "STM32F411CEUx",
+      "flashingConfig": {
+        "flashingEnabled": true,
+        "haltAfterReset": true
+      },
+      "coreConfigs": [
+        {
+          "coreIndex": 0,
+          "programBinary": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/r4motor_firmware",
+          "svdFile": "${workspaceFolder}/STM32F411.svd",
+          "rttEnabled": true,
+          "rttChannelFormats": [
+            {
+              "channelNumber": 0,
+              "dataFormat": "Defmt",
+              "showLocation": true
+            }
+          ]
+        }
+      ],
+      //!This won't take effect. Please set environment variables before launching `probe-rs dap-server`.
+      "env": {},
+      // Info, Debug
+      "consoleLogLevel": "Console"
+    }
+  ]
+}
