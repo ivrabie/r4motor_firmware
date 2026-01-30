@@ -138,7 +138,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
                 self.ins_a.set_low();
                 self.ins_b.set_low();
             }
-            reg::Direction::Break => {
+            reg::Direction::Brake => {
                 self.ins_a.set_high();
                 self.ins_b.set_high();
             }
@@ -164,7 +164,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         } else if self.ins_a.is_set_low() && self.ins_b.is_set_high() {
             reg::Direction::Backward
         } else if self.ins_a.is_set_high() && self.ins_b.is_set_high(){
-            reg::Direction::Break
+            reg::Direction::Brake
         } else {
             error!("{}: Invalid motor direction state!", self.name);
             reg::Direction::Stop
