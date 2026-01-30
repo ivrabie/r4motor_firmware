@@ -2,9 +2,9 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "copy-elf-to-remote",
+			"label": "copy-debug-needs-to-remote",
 			"type": "shell",
-			"command": "scp ${workspaceFolder}/target/thumbv7em-none-eabi/debug/r4motor_firmware root@192.168.1.146:/root/",
+			"command": "scp ${workspaceFolder}/STM32F411.svd root@192.168.1.146:/root/ && scp ${workspaceFolder}/target/thumbv7em-none-eabi/debug/r4motor_firmware root@192.168.1.146:/root/",
 			"group": "build",
 			"presentation": {
 				"echo": true,
@@ -13,15 +13,6 @@
 				"panel": "shared"
 			},
 			"problemMatcher": ["$rustc"]
-		},
-		{
-			"type": "cargo",
-			"command": "build",
-			"problemMatcher": [
-				"$rustc"
-			],
-			"group": "build",
-			"label": "rust: cargo build"
 		}
 	]
 }

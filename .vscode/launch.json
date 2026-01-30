@@ -3,11 +3,10 @@
   "configurations": [
     {
       // Configure a default build task for 'cargo build'
-      "preLaunchTask": "copy-elf-to-remote",
+      "preLaunchTask": "copy-debug-needs-to-remote",
       "type": "probe-rs-debug",
       "request": "launch",
       "name": "probe_rs debug remote",
-      //!MODIFY ... can be a server that is remote from the VSCode session, but local to the probe
       "server": "192.168.1.146:50000",
       "cwd": "${workspaceFolder}",
       "chip": "STM32F411CEUx",
@@ -17,6 +16,7 @@
       "coreConfigs": [
         {
           "programBinary": "/root/r4motor_firmware",
+          "svdFile": "/root/STM32F411.svd",
           "rttEnabled": true,
           "rttChannelFormats": [
             {

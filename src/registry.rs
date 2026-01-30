@@ -60,7 +60,8 @@
 - Error status register clears to NoError when read
 */
 
-use defmt::{Format, info};
+use defmt::trace;
+use defmt::Format;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::car_ctrl;
@@ -147,6 +148,7 @@ pub enum Direction {
     Stop = 0,
     Forward = 1,
     Backward = 2,
+    Brake = 3,
 }
 
 #[repr(C)]
@@ -383,7 +385,7 @@ impl Registry {
         }
         let registry_bytes = unsafe { &mut self.data.bytes };
         registry_bytes[reg_offset..reg_offset + data.len()].copy_from_slice(data);
-        info!("Updated buffer {}", registry_bytes);
+        trace!("Updated buffer {:?}", registry_bytes);
         for i in 0..spi_proto::DEVICE_SUPPORTED_MOTORS {
             let motor_cfg = unsafe { self.data.registry.motors[i] };
             let reg_pwm_idx = (RegisterID::Motor1PWMDutyCycle as usize
@@ -400,7 +402,7 @@ impl Registry {
                 self.register_configs[reg_pwm_idx as usize].access = RegisterAccessType::ReadWrite;
                 self.register_configs[reg_dir_idx as usize].access = RegisterAccessType::ReadWrite;
             }
-            info!("Motor {} config: {:?}", i + 1, motor_cfg);
+            trace!("Motor {} config: {:?}", i + 1, motor_cfg);
         }
     }
 
@@ -417,7 +419,7 @@ impl Registry {
             "Data length must be multiple of 4 bytes"
         );
         let registry_bytes = unsafe { &self.data.bytes };
-        info!(
+        trace!(
             "Reg offset {} and reg offset end {}",
             reg_offset,
             reg_offset + data.len()
