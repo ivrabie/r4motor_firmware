@@ -25,11 +25,8 @@ use embassy_stm32::{
 };
 #[cfg(feature = "ext_pin_clk")]
 use embassy_stm32::{
-    gpio::{Flex, AfType, Pull},  
-    timer:: {
-        low_level::{Timer, SlaveMode, FilterValue, TriggerSource}
-    }
-    
+    gpio::Flex,
+    timer::low_level::Timer,
 };
 
 use embassy_time::{Duration, Ticker};

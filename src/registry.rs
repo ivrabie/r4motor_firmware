@@ -61,7 +61,7 @@
 */
 
 use defmt::trace;
-use defmt::{Format, info};
+use defmt::Format;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::car_ctrl;
