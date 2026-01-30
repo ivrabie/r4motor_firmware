@@ -30,5 +30,6 @@ build = [
   { target = "thumbv7em-none-eabi", artifact-dir = "out" }
 ]
 [features]
-default = []
+default = ["ext_pin_clk"]
 encoder = []
+ext_pin_clk = []

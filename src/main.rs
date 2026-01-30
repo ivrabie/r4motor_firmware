@@ -23,7 +23,7 @@ use embassy_stm32::{
         Config as QeiConfig, Qei
     },
 };
-#[cfg(not(feature = "encoder"))]
+#[cfg(feature = "ext_pin_clk")]
 use embassy_stm32::{
     gpio::{Flex, AfType, Pull},  
     timer:: {
@@ -234,7 +234,7 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     let mot3_pwm = simple_pwm_channels.ch3;
     let mot4_pwm = simple_pwm_channels.ch4;
 
-    #[cfg(not(feature = "encoder"))]
+    #[cfg(feature = "ext_pin_clk")]
     {
         pub const ALERNATIVE_FUNC_2 : u8 = 2;
         pub const ALERNATIVE_FUNC_1 : u8 = 1;

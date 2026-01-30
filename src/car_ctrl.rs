@@ -1,17 +1,14 @@
 use defmt::{error, info};
-#[cfg(not(feature = "encoder"))]
-use embassy_stm32::{
-    gpio::{Output, Flex},
-    timer::{GeneralInstance4Channel, simple_pwm::SimplePwmChannel},
-};
 #[cfg(feature = "encoder")]
+use embassy_stm32::timer::qei::Qei;
+#[cfg(feature = "ext_pin_clk")]
 use embassy_stm32::{
-    timer::qei::Qei
-};
-#[cfg(not(feature = "encoder"))]
-use embassy_stm32::{
-    timer::low_level::{Timer, SlaveMode, FilterValue, TriggerSource},
-    gpio::{AfType, Pull}
+    gpio::{AfType, Flex, Output, Pull},
+    timer::{
+        low_level::{FilterValue, SlaveMode, Timer, TriggerSource},
+        simple_pwm::SimplePwmChannel,
+        GeneralInstance4Channel,
+    },
 };
 use heapless::Vec;
 
@@ -34,11 +31,11 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub ins_b: Output<'a>,
     #[cfg(feature = "encoder")]
     pub qei: Qei<'a, Q>,
-    #[cfg(not(feature = "encoder"))]
+    #[cfg(feature = "ext_pin_clk")]
     pub timer: Timer<'a, Q>,
-    #[cfg(not(feature = "encoder"))]
+    #[cfg(feature = "ext_pin_clk")]
     pub ext_timer_clk: Flex<'a>,
-    #[cfg(not(feature = "encoder"))]
+    #[cfg(feature = "ext_pin_clk")]
     pub af_num: u8,
     pub desired_rpm: f32,
     pub last_rpm: f32,
@@ -64,14 +61,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         pwm: SimplePwmChannel<'a, S>,
         ins_a: Output<'a>,
         ins_b: Output<'a>,
-        #[cfg(feature = "encoder")]
-        qei: Qei<'a, Q>,
-        #[cfg(not(feature = "encoder"))]
-        timer: Timer<'a, Q>,
-        #[cfg(not(feature = "encoder"))]
-        ext_timer_clk: Flex<'a>,
-        #[cfg(not(feature = "encoder"))]
-        af_num: u8,
+        #[cfg(feature = "encoder")] qei: Qei<'a, Q>,
+        #[cfg(feature = "ext_pin_clk")] timer: Timer<'a, Q>,
+        #[cfg(feature = "ext_pin_clk")] ext_timer_clk: Flex<'a>,
+        #[cfg(feature = "ext_pin_clk")] af_num: u8,
         count_per_rev: u32,
     ) -> Self {
         Self {
@@ -81,11 +74,11 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             ins_b,
             #[cfg(feature = "encoder")]
             qei,
-            #[cfg(not(feature = "encoder"))]
+            #[cfg(feature = "ext_pin_clk")]
             timer,
-            #[cfg(not(feature = "encoder"))]
+            #[cfg(feature = "ext_pin_clk")]
             ext_timer_clk,
-            #[cfg(not(feature = "encoder"))]
+            #[cfg(feature = "ext_pin_clk")]
             af_num,
             count_per_rev: count_per_rev,
             last_count: 0,
@@ -101,15 +94,16 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         self.ins_a.set_low();
         self.ins_b.set_low();
         self.pwm.enable();
-        #[cfg(not(feature = "encoder"))]
+        #[cfg(feature = "ext_pin_clk")]
         {
             info!("{}: Initializing timer for encoder emulation", self.name);
             let af_config = AfType::input(Pull::None);
-            self.ext_timer_clk.set_as_af_unchecked(self.af_num, af_config);
+            self.ext_timer_clk
+                .set_as_af_unchecked(self.af_num, af_config);
             self.timer.set_trigger_source(TriggerSource::TI1FP1);
             self.timer.set_slave_mode(SlaveMode::EXT_CLOCK_MODE);
             self.timer.regs_gp16().smcr().modify(|w| {
-            w.set_etf(FilterValue::FCK_INT_N8);
+                w.set_etf(FilterValue::FCK_INT_N8);
             });
             self.timer.start();
         }
@@ -173,13 +167,13 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     pub fn get_pwm_duty(&mut self) -> i32 {
         ((self.pwm.current_duty_cycle() as u32 * 100) / self.pwm.max_duty_cycle()) as i32
     }
-    
+
     pub fn get_count(&mut self) -> u16 {
         #[cfg(feature = "encoder")]
         {
             self.qei.count()
         }
-        #[cfg(not(feature = "encoder"))]
+        #[cfg(feature = "ext_pin_clk")]
         {
             self.timer.regs_gp16().cnt().read().cnt()
         }
