@@ -1,7 +1,17 @@
 use defmt::{error, info};
+#[cfg(not(feature = "encoder"))]
 use embassy_stm32::{
-    gpio::Output,
-    timer::{GeneralInstance4Channel, qei::Qei, simple_pwm::SimplePwmChannel},
+    gpio::{Output, Flex},
+    timer::{GeneralInstance4Channel, simple_pwm::SimplePwmChannel},
+};
+#[cfg(feature = "encoder")]
+use embassy_stm32::{
+    timer::qei::Qei
+};
+#[cfg(not(feature = "encoder"))]
+use embassy_stm32::{
+    timer::low_level::{Timer, SlaveMode, FilterValue, TriggerSource},
+    gpio::{AfType, Pull}
 };
 use heapless::Vec;
 
@@ -22,13 +32,21 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub pwm: SimplePwmChannel<'a, S>,
     pub ins_a: Output<'a>,
     pub ins_b: Output<'a>,
+    #[cfg(feature = "encoder")]
     pub qei: Qei<'a, Q>,
+    #[cfg(not(feature = "encoder"))]
+    pub timer: Timer<'a, Q>,
+    #[cfg(not(feature = "encoder"))]
+    pub ext_timer_clk: Flex<'a>,
+    #[cfg(not(feature = "encoder"))]
+    pub af_num: u8,
     pub desired_rpm: f32,
     pub last_rpm: f32,
     pub count_per_rev: u32,
     pub last_count: u32,
     pub last_time: u64,
     pub control_mode: reg::ControlMode,
+    pub qei_last_count: u32,
 }
 
 pub struct Car<'a> {
@@ -46,7 +64,14 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         pwm: SimplePwmChannel<'a, S>,
         ins_a: Output<'a>,
         ins_b: Output<'a>,
+        #[cfg(feature = "encoder")]
         qei: Qei<'a, Q>,
+        #[cfg(not(feature = "encoder"))]
+        timer: Timer<'a, Q>,
+        #[cfg(not(feature = "encoder"))]
+        ext_timer_clk: Flex<'a>,
+        #[cfg(not(feature = "encoder"))]
+        af_num: u8,
         count_per_rev: u32,
     ) -> Self {
         Self {
@@ -54,13 +79,21 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             pwm,
             ins_a,
             ins_b,
+            #[cfg(feature = "encoder")]
             qei,
+            #[cfg(not(feature = "encoder"))]
+            timer,
+            #[cfg(not(feature = "encoder"))]
+            ext_timer_clk,
+            #[cfg(not(feature = "encoder"))]
+            af_num,
             count_per_rev: count_per_rev,
             last_count: 0,
             last_rpm: 0.0,
             last_time: embassy_time::Instant::now().as_millis(),
             desired_rpm: 0.0,
             control_mode: reg::ControlMode::PwmControl,
+            qei_last_count: 0,
         }
     }
 
@@ -68,6 +101,18 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         self.ins_a.set_low();
         self.ins_b.set_low();
         self.pwm.enable();
+        #[cfg(not(feature = "encoder"))]
+        {
+            info!("{}: Initializing timer for encoder emulation", self.name);
+            let af_config = AfType::input(Pull::None);
+            self.ext_timer_clk.set_as_af_unchecked(self.af_num, af_config);
+            self.timer.set_trigger_source(TriggerSource::TI1FP1);
+            self.timer.set_slave_mode(SlaveMode::EXT_CLOCK_MODE);
+            self.timer.regs_gp16().smcr().modify(|w| {
+            w.set_etf(FilterValue::FCK_INT_N8);
+            });
+            self.timer.start();
+        }
     }
 
     pub fn set_direction(&mut self, dir: reg::Direction) {
@@ -128,13 +173,21 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     pub fn get_pwm_duty(&mut self) -> i32 {
         ((self.pwm.current_duty_cycle() as u32 * 100) / self.pwm.max_duty_cycle()) as i32
     }
-
+    
     pub fn get_count(&mut self) -> u16 {
-        self.qei.count()
+        #[cfg(feature = "encoder")]
+        {
+            self.qei.count()
+        }
+        #[cfg(not(feature = "encoder"))]
+        {
+            self.timer.regs_gp16().cnt().read().cnt()
+        }
     }
 
     pub fn calculate_rpm(&mut self, interval_ms: u32) -> f32 {
-        let count = self.qei.count() as f32;
+        let count = self.get_count() as f32;
+        self.qei_last_count = count as u32;
         let last_count = self.last_count as f32;
         let interval_ms = interval_ms as f32;
         let count_per_rev = self.count_per_rev as f32;

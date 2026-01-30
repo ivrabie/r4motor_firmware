@@ -14,9 +14,22 @@ use embassy_stm32::{
     spi::{Config as SpiConfig, Spi},
     time::khz,
     timer::{
-        qei::{Config as QeiConfig, Qei},
         simple_pwm::{PwmPin, SimplePwm},
     },
+};
+#[cfg(feature = "encoder")]
+use embassy_stm32::{
+    timer::qei::{
+        Config as QeiConfig, Qei
+    },
+};
+#[cfg(not(feature = "encoder"))]
+use embassy_stm32::{
+    gpio::{Flex, AfType, Pull},  
+    timer:: {
+        low_level::{Timer, SlaveMode, FilterValue, TriggerSource}
+    }
+    
 };
 
 use embassy_time::{Duration, Ticker};
@@ -221,50 +234,112 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
     let mot3_pwm = simple_pwm_channels.ch3;
     let mot4_pwm = simple_pwm_channels.ch4;
 
+    #[cfg(not(feature = "encoder"))]
+    {
+        pub const ALERNATIVE_FUNC_2 : u8 = 2;
+        pub const ALERNATIVE_FUNC_1 : u8 = 1;
+        let pin_ext_clk_mot1 = Flex::new(per.PA0);
+        let pin_ext_clk_mot2 = Flex::new(per.PA6);
+        let pin_ext_clk_mot3 = Flex::new(per.PB6);
+        let pin_ext_clk_mot4 = Flex::new(per.PA15); 
+        
+        
+        let timer_motor1 = Timer::new(per.TIM5);
+        let timer_motor2 = Timer::new(per.TIM3);
+        let timer_motor3 = Timer::new(per.TIM4);
+        let timer_motor4 = Timer::new(per.TIM2);
+
+        let motor1 = Motor::new(
+            "MOTOR_1",
+            mot1_pwm,
+            m1_ins_a,
+            m1_ins_b,
+            timer_motor1,
+            pin_ext_clk_mot1,
+            ALERNATIVE_FUNC_2,
+            MOTOR_COUNT_PER_REV,
+        );
+        let motor2 = Motor::new(
+            "MOTOR_2",
+            mot2_pwm,
+            m2_ins_a,
+            m2_ins_b,
+            timer_motor2,
+            pin_ext_clk_mot2,    
+            ALERNATIVE_FUNC_2,
+            MOTOR_COUNT_PER_REV,
+        );
+        let motor3 = Motor::new(
+            "MOTOR_3",
+            mot3_pwm,
+            m3_ins_a,
+            m3_ins_b,
+            timer_motor3,
+            pin_ext_clk_mot3,
+            ALERNATIVE_FUNC_2,
+            MOTOR_COUNT_PER_REV,
+        );
+        let motor4 = Motor::new(
+            "MOTOR_4",
+            mot4_pwm,
+            m4_ins_a,
+            m4_ins_b,
+            timer_motor4,
+            pin_ext_clk_mot4,
+            ALERNATIVE_FUNC_1,
+            MOTOR_COUNT_PER_REV,
+        );
+        Car::new(motor1, motor2, motor3, motor4, vcc_gpio, standby_gpio)
+    }
+    
     // Quadrature configuration
-    let qei_config = QeiConfig::default();
-    let qei_motor1 = Qei::new(per.TIM5, per.PA0, per.PA1, qei_config);
-    let qei_motor4 = Qei::new(per.TIM2, per.PA15, per.PB3, qei_config);
-    let qei_motor2 = Qei::new(per.TIM3, per.PA6, per.PA7, qei_config);
-    let qei_motor3 = Qei::new(per.TIM4, per.PB6, per.PB7, qei_config);
+    #[cfg(feature = "encoder")]
+    {
+        let qei_config = QeiConfig::default();
+        let qei_motor1 = Qei::new(per.TIM5, per.PA0, per.PA1, qei_config);
+        let qei_motor2 = Qei::new(per.TIM3, per.PA7, per.PA6, qei_config);
+        let qei_motor3 = Qei::new(per.TIM4, per.PB6, per.PB7, qei_config);
+        let qei_motor4 = Qei::new(per.TIM2, per.PB3, per.PA15, qei_config);
+        
+        let motor1 = Motor::new(
+            "MOTOR_1",
+            mot1_pwm,
+            m1_ins_a,
+            m1_ins_b,
+            qei_motor1,
+            MOTOR_COUNT_PER_REV,
+        );
+    
+        let motor2 = Motor::new(
+            "MOTOR_2",
+            mot2_pwm,
+            m2_ins_a,
+            m2_ins_b,
+            qei_motor2,
+            MOTOR_COUNT_PER_REV,
+        );
+    
+        let motor3 = Motor::new(
+            "MOTOR_3",
+            mot3_pwm,
+            m3_ins_a,
+            m3_ins_b,
+            qei_motor3,
+            MOTOR_COUNT_PER_REV,
+        );
+    
+        let motor4 = Motor::new(
+            "MOTOR_4",
+            mot4_pwm,
+            m4_ins_a,
+            m4_ins_b,
+            qei_motor4,
+            MOTOR_COUNT_PER_REV,
+        );
+    
+        Car::new(motor1, motor2, motor3, motor4, vcc_gpio, standby_gpio)
+    }
 
-    let motor1 = Motor::new(
-        "MOTOR_1",
-        mot1_pwm,
-        m1_ins_a,
-        m1_ins_b,
-        qei_motor1,
-        MOTOR_COUNT_PER_REV,
-    );
-
-    let motor2 = Motor::new(
-        "MOTOR_2",
-        mot2_pwm,
-        m2_ins_a,
-        m2_ins_b,
-        qei_motor2,
-        MOTOR_COUNT_PER_REV,
-    );
-
-    let motor3 = Motor::new(
-        "MOTOR_3",
-        mot3_pwm,
-        m3_ins_a,
-        m3_ins_b,
-        qei_motor3,
-        MOTOR_COUNT_PER_REV,
-    );
-
-    let motor4 = Motor::new(
-        "MOTOR_4",
-        mot4_pwm,
-        m4_ins_a,
-        m4_ins_b,
-        qei_motor4,
-        MOTOR_COUNT_PER_REV,
-    );
-
-    Car::new(motor1, motor2, motor3, motor4, vcc_gpio, standby_gpio)
 }
 
 #[embassy_executor::main]
