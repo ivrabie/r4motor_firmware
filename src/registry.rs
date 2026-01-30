@@ -148,6 +148,7 @@ pub enum Direction {
     Stop = 0,
     Forward = 1,
     Backward = 2,
+    Break = 3,
 }
 
 #[repr(C)]

@@ -45,7 +45,8 @@ const MOTOR_COUNT_PER_REV: u32 = 330;
 #[embassy_executor::task]
 async fn motor_control_task() {
     let mut car_ctrl = build_car_hw_cfg();
-    let mut ticker = Ticker::every(Duration::from_millis(10));
+    let mut ticker = Ticker::every(Duration::from_millis(50));
+    let mut print_cnt: u32 = 0;
     let default_motor_state = MotorCurrState {
         rpm: 0,
         direction: registry::Direction::Stop,
@@ -74,7 +75,20 @@ async fn motor_control_task() {
         if car_curr_status != prev_car_state {
             let mut registry = REGISTRY.lock().await;
             registry.update_car_state(&car_curr_status);
-            prev_car_state = car_curr_status;
+            prev_car_state = car_curr_status.clone();
+        }
+        print_cnt += 1;
+        if print_cnt >= 20 {
+            print_cnt = 0;
+            for (i, motor) in car_curr_status.motors.iter().enumerate() {
+                info!(
+                    "Motor {}: RPM: {}, Direction: {:?}, PWM Duty: {}",
+                    i + 1,
+                    motor.rpm,
+                    motor.direction,
+                    motor.pwm_duty
+                );
+            }
         }
         ticker.next().await;
     }
