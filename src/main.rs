@@ -77,19 +77,6 @@ async fn motor_control_task() {
             registry.update_car_state(&car_curr_status);
             prev_car_state = car_curr_status.clone();
         }
-        print_cnt += 1;
-        if print_cnt >= 20 {
-            print_cnt = 0;
-            for (i, motor) in car_curr_status.motors.iter().enumerate() {
-                info!(
-                    "Motor {}: RPM: {}, Direction: {:?}, PWM Duty: {}",
-                    i + 1,
-                    motor.rpm,
-                    motor.direction,
-                    motor.pwm_duty
-                );
-            }
-        }
         ticker.next().await;
     }
 }
