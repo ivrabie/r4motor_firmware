@@ -14,6 +14,7 @@ use embassy_stm32::{
 use defmt::Format;
 use heapless::Vec;
 
+use crate::pid;
 use crate::registry as reg;
 
 #[derive(Debug, Clone, Copy, PartialEq, Format)]
@@ -45,6 +46,7 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub last_count: u16,
     pub last_time: u64,
     pub control_mode: reg::ControlMode,
+    pub pid_ctrl: pid::Pid,
 }
 
 pub struct Car<'a> {
@@ -87,6 +89,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             last_time: embassy_time::Instant::now().as_millis(),
             desired_rpm: 0.0,
             control_mode: reg::ControlMode::PwmControl,
+            pid_ctrl: pid::Pid::new(),
         }
     }
 
@@ -204,6 +207,9 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         }
         self.count_per_rev = mot_cfg.counts_per_revolution as u32;
         self.desired_rpm = mot_cfg.rpm_desired as f32;
+        self.pid_ctrl.cfg.kp = mot_cfg.pid_kp as f32;
+        self.pid_ctrl.cfg.ki = mot_cfg.pid_ki as f32;
+        self.pid_ctrl.cfg.kd = mot_cfg.pid_kd as f32;
     }
 
     pub fn get_curr_state(&mut self) -> MotorCurrState {
@@ -223,6 +229,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         let rpm = self.calculate_rpm(revs, interval_ms);
         self.last_rpm = rpm;
         self.last_time = current_time;
+        if self.control_mode == reg::ControlMode::RpmControl {
+            let pid_output = self.pid_ctrl.compute(self.desired_rpm as f32, self.last_rpm as f32);
+            self.set_pwm_duty(pid_output as i32);
+        }
     }
 }
 

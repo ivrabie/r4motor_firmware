@@ -31,7 +31,7 @@ use embassy_stm32::{
 
 use embassy_time::{Duration, Ticker};
 use {defmt_rtt as _, panic_probe as _};
-
+mod pid;
 mod car_ctrl;
 use car_ctrl::*;
 mod spi_proto;
@@ -46,7 +46,6 @@ const MOTOR_COUNT_PER_REV: u32 = 330;
 async fn motor_control_task() {
     let mut car_ctrl = build_car_hw_cfg();
     let mut ticker = Ticker::every(Duration::from_millis(50));
-    let mut print_cnt: u32 = 0;
     let default_motor_state = MotorCurrState {
         rpm: 0,
         direction: registry::Direction::Stop,
@@ -56,15 +55,6 @@ async fn motor_control_task() {
     let mut prev_car_state = CarCurrState { motors };
     car_ctrl.init();
     loop {
-        // match select(ticker.next(), REGISTRY_SIGNAL.wait()).await {
-        //     Either::First(_) => {
-        //         car_ctrl.ctrl_loop();
-        //         // CAR_CURR_STATE_SIGNAL.signal(car_ctrl.get_curr_state());
-        //     }
-        //     Either::Second(cfg) => {
-        //         car_ctrl.apply_cfg(&cfg);
-        //     }
-        // }
         let reg_data = {
             let registry = REGISTRY.lock().await;
             registry.get_registry_data()
@@ -87,24 +77,6 @@ async fn spi_task(
 ) {
     let mut protocol_buffer = [0u8; spi_proto::PROTOCOL_MAX_BUFFER_SIZE];
     loop {
-        // match select(
-        //     handle_spi_transaction(&mut spi, &mut reg, &mut protocol_buffer),
-        //     CAR_CURR_STATE_SIGNAL.wait(),
-        // )
-        // .await
-        // {
-        //     Either::First(res) => {
-        //         if let Err(e) = res {
-        //             error!("SPI transaction failed: {:?}", e);
-        //             // Continue processing despite errors
-        //         } else {
-        //             REGISTRY_SIGNAL.signal(reg.get_registry_data());
-        //         }
-        //     }
-        //     Either::Second(car_state) => {
-        //         reg.update_car_state(&car_state);
-        //     }
-        // }
         let res = handle_spi_transaction(&mut spi, &mut protocol_buffer).await;
         if let Err(e) = res {
             error!("SPI transaction failed: {:?}", e);
