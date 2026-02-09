@@ -165,9 +165,9 @@ pub struct MotorConfig {
     pub direction: Direction,
     pub pwm_duty_cycle: i32,
     pub counts_per_revolution: i32,
-    pub pid_kp: i32,
-    pub pid_ki: i32,
-    pub pid_kd: i32,
+    pub pid_kp: f32,
+    pub pid_ki: f32,
+    pub pid_kd: f32,
     pub rpm_desired: i32,
     pub rpm_current: i32,
 }
@@ -203,7 +203,7 @@ pub struct Registry {
 }
 
 pub const MOTOR_MAX_PWM_DUTY_CYCLE: i32 = 100;
-pub const MOTOR_MAX_DESIRED_RPM: i32 = 200;
+pub const MOTOR_MAX_DESIRED_RPM: i32 = 300;
 pub const MOTOR_DEFAULT_REV_COUNT: i32 = 330;
 
 pub const MOTOR_REGISTER_CONFIGS: [RegisterConfig; 9] = [
@@ -265,10 +265,10 @@ impl RegistryData {
                 control_mode: ControlMode::PwmControl,
                 direction: Direction::Stop,
                 pwm_duty_cycle: 0,
-                counts_per_revolution: MOTOR_DEFAULT_REV_COUNT,
-                pid_kp: 0,
-                pid_ki: 0,
-                pid_kd: 0,
+                counts_per_revolution: MOTOR_DEFAULT_REV_COUNT as i32,
+                pid_kp: 0.0,
+                pid_ki: 0.0,
+                pid_kd: 0.0,
                 rpm_desired: 0,
                 rpm_current: 0,
             }; 4],

@@ -52,8 +52,8 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
 pub struct Car<'a> {
     pub motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
     pub motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
-    pub motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
-    pub motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+    pub motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+    pub motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
     pub vcc_gpio: Output<'a>,
     pub standby_gpio: Output<'a>,
 }
@@ -120,6 +120,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         #[cfg(feature = "ext_pin_clk")]
         {
             self.timer.regs_gp16().cnt().write(|w| w.set_cnt(0));
+            self.last_time = embassy_time::Instant::now().as_millis();
         }
     }
 
@@ -154,7 +155,6 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             "PWM duty cycle must be between 0 and 100"
         );
         if self.get_pwm_duty() != duty {
-            info!("{}: Setting PWM duty to {}", self.name, duty);
             self.pwm.set_duty_cycle_percent(duty as u8);
         }
     }
@@ -193,7 +193,6 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         if interval_ms == 0 {
             return 0.0;
         }
-
         revs / (interval_ms as f32 / 60000.0)
     }
 
@@ -204,12 +203,32 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
                 self.set_direction(mot_cfg.direction);
             }
             self.set_pwm_duty(mot_cfg.pwm_duty_cycle);
+        } else {
+            let dir = if mot_cfg.rpm_desired >= 0 {
+                reg::Direction::Forward
+            } else {
+                reg::Direction::Backward
+            };
+            if dir != self.get_direction() {
+                self.set_direction(dir);
+            }
         }
-        self.count_per_rev = mot_cfg.counts_per_revolution as u32;
-        self.desired_rpm = mot_cfg.rpm_desired as f32;
-        self.pid_ctrl.cfg.kp = mot_cfg.pid_kp as f32;
-        self.pid_ctrl.cfg.ki = mot_cfg.pid_ki as f32;
-        self.pid_ctrl.cfg.kd = mot_cfg.pid_kd as f32;
+        if self.count_per_rev != mot_cfg.counts_per_revolution as u32 {
+            info!("{}: Updating counts per revolution to {}", self.name, mot_cfg.counts_per_revolution);
+            self.count_per_rev = mot_cfg.counts_per_revolution as u32;
+        }
+
+        if self.desired_rpm != mot_cfg.rpm_desired as f32 {
+            info!("{}: Updating desired RPM to {}", self.name, mot_cfg.rpm_desired);
+            self.desired_rpm = mot_cfg.rpm_desired as f32;
+        }
+
+        if self.pid_ctrl.cfg.kp != mot_cfg.pid_kp || self.pid_ctrl.cfg.ki != mot_cfg.pid_ki || self.pid_ctrl.cfg.kd != mot_cfg.pid_kd {
+            info!("{}: Updating PID parameters to Kp: {}, Ki: {}, Kd: {}", self.name, mot_cfg.pid_kp, mot_cfg.pid_ki, mot_cfg.pid_kd);
+            self.pid_ctrl.cfg.kp = mot_cfg.pid_kp;
+            self.pid_ctrl.cfg.ki = mot_cfg.pid_ki;
+            self.pid_ctrl.cfg.kd = mot_cfg.pid_kd;
+        }
     }
 
     pub fn get_curr_state(&mut self) -> MotorCurrState {
@@ -223,12 +242,13 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     pub fn ctrl_loop(&mut self) {
         self.last_count = self.get_count();
         let current_time = embassy_time::Instant::now().as_millis();
+        let last_time = self.last_time;
         self.reset_count();
         let revs = self.last_count as f32 / self.count_per_rev as f32;
-        let interval_ms = (current_time - self.last_time) as u32;
+        let interval_ms = (current_time - last_time) as u32;
         let rpm = self.calculate_rpm(revs, interval_ms);
         self.last_rpm = rpm;
-        self.last_time = current_time;
+        info!("{}: Current count: {} revs: {} RPM: {}", self.name, self.last_count, revs, rpm);
         if self.control_mode == reg::ControlMode::RpmControl {
             let pid_output = self.pid_ctrl.compute(self.desired_rpm as f32, self.last_rpm as f32);
             self.set_pwm_duty(pid_output as i32);
@@ -240,8 +260,8 @@ impl<'a> Car<'a> {
     pub fn new(
         motor1: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM5>,
         motor2: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM3>,
-        motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
-        motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+        motor3: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM2>,
+        motor4: Motor<'a, embassy_stm32::peripherals::TIM1, embassy_stm32::peripherals::TIM4>,
         vcc_gpio: Output<'a>,
         standby_gpio: Output<'a>,
     ) -> Self {

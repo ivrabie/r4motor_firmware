@@ -1,3 +1,4 @@
+use defmt::{info};
 pub struct PidCfg {
     pub kp: f32,
     pub ki: f32,
@@ -59,7 +60,12 @@ impl Pid {
         let sat_err = o_clamped - o_raw;
         
         // Calculate anti-windup gain (Ki/Kp ratio)
-        let kaw = self.cfg.ki / self.cfg.kp;
+        let kaw = if self.cfg.kp == 0.0 {
+            0.0
+        } else {
+            self.cfg.ki / self.cfg.kp
+        };
+
         
         // Update integral term with error and anti-windup compensation
         self.i += self.cfg.ki * error + kaw * sat_err;
@@ -74,6 +80,7 @@ impl Pid {
         // Store current error for next derivative calculation
         self.prev_error = error;
         
+        info!("PID Compute => SP: {}, Meas: {}, P: {}, I: {}, D: {}, Out raw {} Out: {}", setpoint, measured, self.p, self.i, self.d, o_raw, o_clamped);
         o_clamped
     }
 }

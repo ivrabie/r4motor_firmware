@@ -3,14 +3,16 @@
 #![warn(dead_code)]
 
 use defmt::*;
-use embassy_executor::Spawner;
+use embassy_executor::{InterruptExecutor, Spawner};
 use heapless::Vec;
 
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 
 
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed},
+    interrupt,
+    interrupt::{InterruptExt, Priority},
     spi::{Config as SpiConfig, Spi},
     time::khz,
     timer::{
@@ -38,8 +40,10 @@ mod spi_proto;
 use spi_proto::*;
 mod registry;
 
-static REGISTRY: Mutex<ThreadModeRawMutex, registry::Registry> =
+
+static REGISTRY: Mutex<CriticalSectionRawMutex, registry::Registry> =
     Mutex::new(registry::Registry::new());
+static SPI_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
 const MOTOR_COUNT_PER_REV: u32 = 330;
 
 #[embassy_executor::task]
@@ -84,6 +88,11 @@ async fn spi_task(
         } else {
         }
     }
+}
+
+#[interrupt]
+unsafe fn USART6() {
+    unsafe { SPI_EXECUTOR.on_interrupt() }
 }
 
 async fn handle_spi_transaction(
@@ -216,8 +225,8 @@ pub fn build_car_hw_cfg<'a>() -> Car<'a> {
         
         let timer_motor1 = Timer::new(per.TIM5);
         let timer_motor2 = Timer::new(per.TIM3);
-        let timer_motor3 = Timer::new(per.TIM4);
-        let timer_motor4 = Timer::new(per.TIM2);
+        let timer_motor3 = Timer::new(per.TIM2);
+        let timer_motor4 = Timer::new(per.TIM4);
 
         let motor1 = Motor::new(
             "MOTOR_1",
@@ -325,9 +334,12 @@ async fn main(spawner: Spawner) {
         p.PA4, // CS
         p.DMA2_CH3, p.DMA2_CH2, spi_config,
     );
-    spawner.spawn(motor_control_task().unwrap());
 
-    spawner.spawn(spi_task(spi).unwrap());
+    interrupt::USART6.set_priority(Priority::P6);
+    let spi_spawner = SPI_EXECUTOR.start(interrupt::USART6);
+    spi_spawner.spawn(spi_task(spi).unwrap());
+
+    spawner.spawn(motor_control_task().unwrap());
 
     let mut ticker = Ticker::every(Duration::from_millis(100));
 
