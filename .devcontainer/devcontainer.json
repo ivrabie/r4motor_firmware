@@ -1,0 +1,27 @@
+{
+  "name": "r4motor firmware",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--network=host",
+    "--privileged",
+    "--device=/dev/bus/usb:/dev/bus/usb",
+    "--volume=/run/udev:/run/udev:ro"
+  ],
+  "containerEnv": {
+    "DEFMT_LOG": "info",
+    "SHELL": "/usr/bin/zsh"
+  },
+  "postCreateCommand": "bash -lc 'rustup target add thumbv7em-none-eabi && rustup component add rustfmt clippy && (command -v probe-rs >/dev/null 2>&1 || cargo install probe-rs-tools --locked)'",
+  "postStartCommand": "bash .devcontainer/check-remote.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "probe-rs.probe-rs-debugger",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}

@@ -60,8 +60,8 @@
 - Error status register clears to NoError when read
 */
 
-use defmt::trace;
 use defmt::Format;
+use defmt::trace;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::car_ctrl;
@@ -199,12 +199,27 @@ pub struct RegisterConfig {
 }
 pub struct Registry {
     data: RegistryUnion,
-    register_configs: [RegisterConfig; 40],
+    register_configs: [RegisterConfig; spi_proto::REGISTERS_COUNT],
 }
 
 pub const MOTOR_MAX_PWM_DUTY_CYCLE: i32 = 100;
 pub const MOTOR_MAX_DESIRED_RPM: i32 = 200;
 pub const MOTOR_DEFAULT_REV_COUNT: i32 = 330;
+pub const INTERNAL_LOOP_TIME_MIN_MS: u32 = 1;
+pub const INTERNAL_LOOP_TIME_MAX_MS: u32 = 10_000;
+pub const INTERNAL_LOOP_TIME_DEFAULT_MS: u32 = 10;
+
+const REGISTER_WORD_SIZE_BYTES: usize = core::mem::size_of::<u32>();
+const REGISTERS_COUNT_FROM_ENUM: usize = RegisterID::LastErrorStatus as usize + 1;
+const MOTOR_BLOCK_TOTAL_REGS: usize =
+    RegisterID::Motor4RPMCurrent as usize - RegisterID::Motor1OperationMode as usize + 1;
+
+const _: [(); spi_proto::REGISTERS_COUNT] = [(); REGISTERS_COUNT_FROM_ENUM];
+const _: [(); spi_proto::REGISTERS_SIZE_BYTES] =
+    [(); REGISTERS_COUNT_FROM_ENUM * REGISTER_WORD_SIZE_BYTES];
+const _: [(); spi_proto::REGISTERS_SIZE_BYTES] = [(); core::mem::size_of::<RegistryData>()];
+const _: [(); spi_proto::DEVICE_SUPPORTED_MOTORS * spi_proto::DEVICE_MOTOR_BLOCK_COUNT] =
+    [(); MOTOR_BLOCK_TOTAL_REGS];
 
 pub const MOTOR_REGISTER_CONFIGS: [RegisterConfig; 9] = [
     RegisterConfig {
@@ -215,7 +230,7 @@ pub const MOTOR_REGISTER_CONFIGS: [RegisterConfig; 9] = [
     RegisterConfig {
         access: RegisterAccessType::ReadWrite,
         low_range: Direction::Stop as i32,
-        high_range: Direction::Backward as i32,
+        high_range: Direction::Brake as i32,
     }, // direction
     RegisterConfig {
         access: RegisterAccessType::ReadWrite,
@@ -272,17 +287,26 @@ impl RegistryData {
                 rpm_desired: 0,
                 rpm_current: 0,
             }; 4],
-            internal_loop_time: 10,
+            internal_loop_time: INTERNAL_LOOP_TIME_DEFAULT_MS,
             last_error_status: ErrorCode::NoError,
         }
     }
 }
-const fn create_register_config_with_macro() -> [RegisterConfig; 40] {
+
+pub const fn sanitize_internal_loop_time_ms(requested_ms: u32) -> u32 {
+    if requested_ms < INTERNAL_LOOP_TIME_MIN_MS || requested_ms > INTERNAL_LOOP_TIME_MAX_MS {
+        INTERNAL_LOOP_TIME_DEFAULT_MS
+    } else {
+        requested_ms
+    }
+}
+
+const fn create_register_config_with_macro() -> [RegisterConfig; spi_proto::REGISTERS_COUNT] {
     let mut configs = [RegisterConfig {
         access: RegisterAccessType::ReadWrite,
         low_range: 0,
         high_range: 0,
-    }; 40];
+    }; spi_proto::REGISTERS_COUNT];
 
     // Device registers
     configs[RegisterID::DeviceID as usize] = RegisterConfig {
@@ -321,13 +345,13 @@ const fn create_register_config_with_macro() -> [RegisterConfig; 40] {
     // System registers
     configs[RegisterID::InternalLoopTime as usize] = RegisterConfig {
         access: RegisterAccessType::ReadWrite,
-        low_range: 1,
-        high_range: 10000,
+        low_range: INTERNAL_LOOP_TIME_MIN_MS as i32,
+        high_range: INTERNAL_LOOP_TIME_MAX_MS as i32,
     };
     configs[RegisterID::LastErrorStatus as usize] = RegisterConfig {
         access: RegisterAccessType::ReadOnly,
         low_range: ErrorCode::NoError as i32,
-        high_range: ErrorCode::WriteNotAllowedInThisControlMode as i32,
+        high_range: ErrorCode::CrcValidationFailed as i32,
     };
 
     configs
@@ -356,31 +380,28 @@ impl Registry {
         }
     }
 
-    pub fn update_registry(&mut self, reg_id: RegisterID, data: &[u8]) {
+    pub fn update_registry(&mut self, reg_id: RegisterID, data: &[u8]) -> Result<(), ErrorCode> {
         let u32_size = core::mem::size_of::<u32>();
         let reg_offset = reg_id as usize * u32_size;
         let end_offset = RegisterID::LastErrorStatus as usize * u32_size + u32_size;
-        assert!(
-            reg_offset + data.len() <= end_offset,
-            "Data write exceeds registry bounds"
-        );
-        if data.len() % 4 != 0 {
-            self.update_error_status(ErrorCode::InvalidRequestLength);
-            return;
+        let write_end = reg_offset
+            .checked_add(data.len())
+            .ok_or(ErrorCode::InvalidRequestLength)?;
+        if write_end > end_offset {
+            return Err(ErrorCode::InvalidRequestLength);
+        }
+        if data.is_empty() || data.len() % 4 != 0 {
+            return Err(ErrorCode::InvalidRequestLength);
         }
         for (i, chunk) in data.chunks(4).enumerate() {
             let value = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             let current_reg_id = RegisterID::try_from((reg_id as usize + i) as u8);
             let current_reg_id = match current_reg_id {
                 Ok(id) => id,
-                Err(_) => {
-                    self.update_error_status(ErrorCode::InvalidRegisterAddress);
-                    return;
-                }
+                Err(_) => return Err(ErrorCode::InvalidRegisterAddress),
             };
             if let Err(err) = self.validate_register_write(current_reg_id, value) {
-                self.update_error_status(err);
-                return;
+                return Err(err);
             }
         }
         let registry_bytes = unsafe { &mut self.data.bytes };
@@ -404,20 +425,22 @@ impl Registry {
             }
             trace!("Motor {} config: {:?}", i + 1, motor_cfg);
         }
+        Ok(())
     }
 
-    pub fn read_registry(&mut self, reg_id: RegisterID, data: &mut [u8]) {
+    pub fn read_registry(&mut self, reg_id: RegisterID, data: &mut [u8]) -> Result<(), ErrorCode> {
         let u32_size = core::mem::size_of::<u32>();
         let reg_offset = reg_id as usize * u32_size;
         let end_offset = RegisterID::LastErrorStatus as usize * u32_size + u32_size;
-        assert!(
-            reg_offset + data.len() <= end_offset,
-            "Data read exceeds registry bounds"
-        );
-        assert!(
-            data.len() % 4 == 0,
-            "Data length must be multiple of 4 bytes"
-        );
+        let read_end = reg_offset
+            .checked_add(data.len())
+            .ok_or(ErrorCode::InvalidRequestLength)?;
+        if read_end > end_offset {
+            return Err(ErrorCode::InvalidRequestLength);
+        }
+        if data.is_empty() || data.len() % 4 != 0 {
+            return Err(ErrorCode::InvalidRequestLength);
+        }
         let registry_bytes = unsafe { &self.data.bytes };
         trace!(
             "Reg offset {} and reg offset end {}",
@@ -426,10 +449,12 @@ impl Registry {
         );
         data.copy_from_slice(&registry_bytes[reg_offset..reg_offset + data.len()]);
         let no_of_regs = data.len() / 4;
-        let last_reg_id = RegisterID::try_from((reg_id as usize + no_of_regs - 1) as u8).unwrap();
+        let last_reg_id = RegisterID::try_from((reg_id as usize + no_of_regs - 1) as u8)
+            .map_err(|_| ErrorCode::InvalidRegisterAddress)?;
         if last_reg_id >= RegisterID::LastErrorStatus {
             self.update_error_status(ErrorCode::NoError);
         }
+        Ok(())
     }
 
     pub fn update_car_state(&mut self, car_state: &car_ctrl::CarCurrState) {

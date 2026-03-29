@@ -1,4 +1,6 @@
 {
+  "dev.containers.dockerPath": "docker",
+  "dev.containers.dockerComposePath": "docker-compose",
   "rust-analyzer.files.excludeDirs": [
     "../embassy/**",
     "target/debug"

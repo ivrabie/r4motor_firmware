@@ -1,14 +1,14 @@
 use defmt::{error, info};
 #[cfg(feature = "encoder")]
 use embassy_stm32::timer::qei::Qei;
+use embassy_stm32::{
+    gpio::Output,
+    timer::{GeneralInstance4Channel, simple_pwm::SimplePwmChannel},
+};
 #[cfg(feature = "ext_pin_clk")]
 use embassy_stm32::{
-    gpio::{AfType, Flex, Output, Pull},
-    timer::{
-        low_level::{FilterValue, SlaveMode, Timer, TriggerSource},
-        simple_pwm::SimplePwmChannel,
-        GeneralInstance4Channel,
-    },
+    gpio::{AfType, Flex, Pull},
+    timer::low_level::{FilterValue, SlaveMode, Timer, TriggerSource},
 };
 
 use defmt::Format;
@@ -112,7 +112,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     fn reset_count(&mut self) {
         #[cfg(feature = "encoder")]
         {
-            self.qei.reset_count();
+            // embassy-stm32 Qei does not expose a counter reset API.
         }
         #[cfg(feature = "ext_pin_clk")]
         {
@@ -159,11 +159,11 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     pub fn get_direction(&mut self) -> reg::Direction {
         if self.ins_a.is_set_low() && self.ins_b.is_set_low() {
             reg::Direction::Stop
-        } else  if self.ins_a.is_set_high() && self.ins_b.is_set_low() {
+        } else if self.ins_a.is_set_high() && self.ins_b.is_set_low() {
             reg::Direction::Forward
         } else if self.ins_a.is_set_low() && self.ins_b.is_set_high() {
             reg::Direction::Backward
-        } else if self.ins_a.is_set_high() && self.ins_b.is_set_high(){
+        } else if self.ins_a.is_set_high() && self.ins_b.is_set_high() {
             reg::Direction::Brake
         } else {
             error!("{}: Invalid motor direction state!", self.name);
@@ -210,7 +210,7 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         MotorCurrState {
             rpm: self.last_rpm as i32,
             direction: self.get_direction(),
-            pwm_duty: self.get_pwm_duty() 
+            pwm_duty: self.get_pwm_duty(),
         }
     }
 
