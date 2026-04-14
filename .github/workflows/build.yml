@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+env:
+  TARGET_TRIPLE: thumbv7em-none-eabi
+  FIRMWARE_NAME: r4motor_firmware
+
 jobs:
   build:
     name: ${{ matrix.name }}
@@ -19,10 +23,13 @@ jobs:
       matrix:
         include:
           - name: default-debug
+            profile: debug
             command: cargo build --locked
           - name: default-release
+            profile: release
             command: cargo build --locked --release
           - name: encoder-debug
+            profile: debug
             command: cargo build --locked --no-default-features --features encoder
 
     steps:
@@ -32,10 +39,41 @@ jobs:
       - name: Install Rust + target
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: thumbv7em-none-eabi
+          targets: ${{ env.TARGET_TRIPLE }}
+
+      - name: Install LLVM tools
+        run: rustup component add llvm-tools-preview
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: ${{ matrix.command }}
+        run: |
+          set -euo pipefail
+          build_dir="target/${TARGET_TRIPLE}/${{ matrix.profile }}"
+          mkdir -p "$build_dir"
+          map_path="${build_dir}/${FIRMWARE_NAME}.map"
+          RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Map=${map_path}" ${{ matrix.command }}
+
+      - name: Prepare build artifacts
+        run: |
+          set -euo pipefail
+          build_dir="target/${TARGET_TRIPLE}/${{ matrix.profile }}"
+          elf_path="${build_dir}/${FIRMWARE_NAME}"
+          map_path="${build_dir}/${FIRMWARE_NAME}.map"
+          host_triple="$(rustc -vV | sed -n 's/^host: //p')"
+          objcopy_path="$(rustc --print sysroot)/lib/rustlib/${host_triple}/bin/llvm-objcopy"
+
+          artifact_dir="artifacts/${{ matrix.name }}"
+          mkdir -p "$artifact_dir"
+
+          cp "$elf_path" "$artifact_dir/${FIRMWARE_NAME}.elf"
+          "$objcopy_path" -O binary "$elf_path" "$artifact_dir/${FIRMWARE_NAME}.bin"
+          cp "$map_path" "$artifact_dir/${FIRMWARE_NAME}.map"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.name }}
+          path: artifacts/${{ matrix.name }}
+          if-no-files-found: error
