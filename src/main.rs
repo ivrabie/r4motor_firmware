@@ -46,7 +46,6 @@ const MOTOR_COUNT_PER_REV: u32 = 330;
 async fn motor_control_task() {
     let mut car_ctrl = build_car_hw_cfg();
     let mut ticker = Ticker::every(Duration::from_millis(50));
-    let mut print_cnt: u32 = 0;
     let default_motor_state = MotorCurrState {
         rpm: 0,
         direction: registry::Direction::Stop,
