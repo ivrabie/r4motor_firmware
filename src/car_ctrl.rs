@@ -1,9 +1,9 @@
-use defmt::{error, info};
+use defmt::{error, info, trace};
 #[cfg(feature = "encoder")]
 use embassy_stm32::timer::qei::Qei;
 use embassy_stm32::{
     gpio::Output,
-    timer::{GeneralInstance4Channel, simple_pwm::SimplePwmChannel},
+    timer::{simple_pwm::SimplePwmChannel, GeneralInstance4Channel},
 };
 #[cfg(feature = "ext_pin_clk")]
 use embassy_stm32::{
@@ -42,7 +42,9 @@ pub struct Motor<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> {
     pub desired_rpm: f32,
     pub last_rpm: f32,
     pub count_per_rev: u32,
-    pub last_count: u16,
+    pub last_count: i32,
+    #[cfg(feature = "encoder")]
+    pub prev_count: u16,
     pub last_time: u64,
     pub control_mode: reg::ControlMode,
 }
@@ -81,8 +83,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
             ext_timer_clk,
             #[cfg(feature = "ext_pin_clk")]
             af_num,
-            count_per_rev: count_per_rev,
+            count_per_rev,
             last_count: 0,
+            #[cfg(feature = "encoder")]
+            prev_count: 0,
             last_rpm: 0.0,
             last_time: embassy_time::Instant::now().as_millis(),
             desired_rpm: 0.0,
@@ -94,6 +98,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
         self.ins_a.set_low();
         self.ins_b.set_low();
         self.pwm.enable();
+        #[cfg(feature = "encoder")]
+        {
+            self.prev_count = self.qei.count();
+        }
         #[cfg(feature = "ext_pin_clk")]
         {
             info!("{}: Initializing timer for encoder emulation", self.name);
@@ -112,8 +120,10 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     fn reset_count(&mut self) {
         #[cfg(feature = "encoder")]
         {
-            // embassy-stm32 Qei does not expose a counter reset API.
+            // Placeholder for explicit QEI counter reset when supported by HAL.
+            self.prev_count = self.qei.count();
         }
+
         #[cfg(feature = "ext_pin_clk")]
         {
             self.timer.regs_gp16().cnt().write(|w| w.set_cnt(0));
@@ -215,14 +225,32 @@ impl<'a, S: GeneralInstance4Channel, Q: GeneralInstance4Channel> Motor<'a, S, Q>
     }
 
     pub fn ctrl_loop(&mut self) {
-        self.last_count = self.get_count();
         let current_time = embassy_time::Instant::now().as_millis();
-        self.reset_count();
-        let revs = self.last_count as f32 / self.count_per_rev as f32;
         let interval_ms = (current_time - self.last_time) as u32;
+
+        #[cfg(feature = "encoder")]
+        {
+            let count = self.get_count();
+            self.last_count = (count.wrapping_sub(self.prev_count) as i16) as i32;
+            self.prev_count = count;
+        }
+
+        #[cfg(feature = "ext_pin_clk")]
+        {
+            self.last_count = self.get_count() as i32;
+            self.reset_count();
+        }
+
+        let revs = self.last_count as f32 / self.count_per_rev as f32;
         let rpm = self.calculate_rpm(revs, interval_ms);
         self.last_rpm = rpm;
         self.last_time = current_time;
+        trace!(
+            "{}: Count={}, RPM={}",
+            self.name,
+            self.last_count,
+            self.last_rpm
+        );
     }
 }
 
